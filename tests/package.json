@@ -1,0 +1,12 @@
+{
+  "name": "tehilim-tests",
+  "private": true,
+  "description": "Dev-only tests for index.html and notify/notify.js. Nothing here is loaded by the site or the daily workflow.",
+  "scripts": {
+    "test": "node run-all.js"
+  },
+  "devDependencies": {
+    "@hebcal/core": "5.8.0",
+    "playwright": "1.63.0"
+  }
+}
