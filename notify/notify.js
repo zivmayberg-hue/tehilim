@@ -242,6 +242,16 @@ async function sendTelegram(text) {
 
 async function send(text) {
   if ((process.env.SEND_MODE || "telegram").toLowerCase() === "telegram") return sendTelegram(text);
+  try { return await sendWhatsApp(text); }
+  catch (e) {                                          // запасной путь: если WhatsApp не сработал, текст приходит в Telegram
+    console.log("WhatsApp не сработал:", e.message);
+    if (!process.env.TG_TOKEN || !process.env.TG_CHAT_ID) throw e;
+    await sendTelegram("⚠️ Бот не смог отправить в WhatsApp группу. Отправьте вручную:\n\n" + text);
+    console.log("Отправлено в Telegram как запасной вариант");
+  }
+}
+
+async function sendWhatsApp(text) {
   const provider = (process.env.WA_PROVIDER || "whapi").toLowerCase();
   const token = process.env.WA_TOKEN, group = process.env.WA_GROUP_ID;
   if (!token || !group) throw new Error("WA_TOKEN и WA_GROUP_ID должны быть заданы");
