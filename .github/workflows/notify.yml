@@ -1,0 +1,52 @@
+name: Family reminder (Telegram now, WhatsApp later)
+
+on:
+  schedule:
+    - cron: "0 4 * * *"        # 04:00 UTC = 08:00 Dubai (no daylight saving in Dubai)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "normal / dry-run / test-message"
+        required: true
+        default: "dry-run"
+        type: choice
+        options: [normal, dry-run, test-message]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: whatsapp-reminder
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build and send today's message
+        env:
+          TZ: Asia/Dubai
+          SEND_MODE: ${{ vars.SEND_MODE || 'telegram' }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          WA_PROVIDER: ${{ secrets.WA_PROVIDER }}
+          WA_TOKEN: ${{ secrets.WA_TOKEN }}
+          WA_INSTANCE: ${{ secrets.WA_INSTANCE }}
+          WA_GROUP_ID: ${{ secrets.WA_GROUP_ID }}
+          DRY_RUN: ${{ github.event.inputs.mode == 'dry-run' && '1' || '0' }}
+          TEST_MESSAGE: ${{ github.event.inputs.mode == 'test-message' && '1' || '0' }}
+        run: node notify/notify.js
+      - name: Save the sent log (also keeps the schedule active)
+        run: |
+          if [ -n "$(git status --porcelain notify/sent.log)" ]; then
+            git config user.name "tehilim-bot"
+            git config user.email "tehilim-bot@users.noreply.github.com"
+            git add notify/sent.log
+            git commit -m "Reminder sent $(TZ=Asia/Dubai date +%F)"
+            git push
+          fi
