@@ -90,6 +90,64 @@ function holidaysOn(f) {
   return out;
 }
 
+// ---------- Шабат: время свечей и исхода, недельная глава ----------
+const SHABBAT_CITIES = [
+  { ru: "Дубай",    lat: 25.2048, lon: 55.2708, il: false, tz: "Asia/Dubai" },
+  { ru: "Герцлия",  lat: 32.1663, lon: 34.8436, il: true,  tz: "Asia/Jerusalem" },
+  { ru: "Бухарест", lat: 44.4268, lon: 26.1025, il: false, tz: "Europe/Bucharest" },
+  { ru: "Киев",     lat: 50.4501, lon: 30.5234, il: false, tz: "Europe/Kiev" },
+  { ru: "Черновцы", lat: 48.2915, lon: 25.9403, il: false, tz: "Europe/Kiev" },
+];
+const PARSHA_RU = {
+  "Bereshit":"Берешит","Noach":"Ноах","Lech-Lecha":"Лех Леха","Vayera":"Вайера","Chayei Sara":"Хаей Сара","Toldot":"Толдот",
+  "Vayetzei":"Вайеце","Vayishlach":"Вайишлах","Vayeshev":"Вайешев","Miketz":"Микец","Vayigash":"Ваигаш","Vayechi":"Вайехи",
+  "Shemot":"Шмот","Vaera":"Ваэра","Bo":"Бо","Beshalach":"Бешалах","Yitro":"Итро","Mishpatim":"Мишпатим","Terumah":"Трума",
+  "Tetzaveh":"Тецаве","Ki Tisa":"Ки Тиса","Vayakhel":"Ваякгель","Pekudei":"Пкудей","Vayikra":"Ваикра","Tzav":"Цав",
+  "Shmini":"Шмини","Tazria":"Тазриа","Metzora":"Мецора","Achrei Mot":"Ахарей Мот","Kedoshim":"Кдошим","Emor":"Эмор",
+  "Behar":"Беар","Bechukotai":"Бехукотай","Bamidbar":"Бамидбар","Nasso":"Насо","Beha'alotcha":"Беаалотха","Sh'lach":"Шлах",
+  "Korach":"Корах","Chukat":"Хукат","Balak":"Балак","Pinchas":"Пинхас","Matot":"Матот","Masei":"Масэй","Devarim":"Дварим",
+  "Vaetchanan":"Ваэтханан","Eikev":"Экев","Re'eh":"Ре'э","Shoftim":"Шофтим","Ki Teitzei":"Ки Теце","Ki Tavo":"Ки Таво",
+  "Nitzavim":"Ницавим","Vayeilech":"Вайелех","Ha'azinu":"Аазину",
+};
+let HC = null;
+function hebcal() { if (!HC) HC = require("@hebcal/core"); return HC; }
+function civil(f) { const d = new Date((f - 719163) * 86400000); return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate() }; }
+function hhmm(date, tz) { return new Intl.DateTimeFormat("ru-RU", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(date); }
+function parshaText(parsha) {
+  const H = hebcal();
+  const ru = parsha.map(p => PARSHA_RU[p] || p).join("-");
+  const he = parsha.map(p => H.Locale.gettext(p, "he")).join("-").replace(/־/g, " ").replace(/[֑-ֽֿ-ׇ]/g, "");
+  return `${ru} (${he})`;
+}
+function shabbatOn(f) {                               // f = суббота (еврейский день начинается в пятницу вечером)
+  if (dow(f) !== 6) return [];
+  const H = hebcal();
+  const fr = civil(f - 1), sa = civil(f);
+  const rows = [];
+  for (const c of SHABBAT_CITIES) {
+    const loc = new H.Location(c.lat, c.lon, c.il, c.tz, c.ru, c.il ? "IL" : "XX");
+    const evs = H.HebrewCalendar.calendar({ start: new Date(fr.y, fr.m, fr.d), end: new Date(sa.y, sa.m, sa.d),
+      location: loc, candlelighting: true, il: c.il, candleLightingMins: 18, havdalahDeg: 8.5, noHolidays: false });
+    let light = null, out = null;
+    for (const e of evs) {
+      if (!e.eventTime) continue;
+      const g = e.getDate().greg(), sameSat = g.getFullYear() === sa.y && g.getMonth() === sa.m && g.getDate() === sa.d;
+      const desc = e.getDesc();
+      if (!sameSat && desc === "Candle lighting" && !light) light = e.eventTime;
+      if (sameSat && (desc === "Havdalah" || desc === "Candle lighting")) out = e.eventTime;
+    }
+    rows.push(`${c.ru}: 🕯️ ${light ? hhmm(light, c.tz) : "—"}  ✨ ${out ? hhmm(out, c.tz) : "—"}`);
+  }
+  const hd = new H.HDate(new Date(sa.y, sa.m, sa.d));
+  const dia = H.getSedra(hd.getFullYear(), false).lookup(hd), isr = H.getSedra(hd.getFullYear(), true).lookup(hd);
+  let parsha;
+  if (dia.chag) parsha = "В эту субботу праздничное чтение Торы.";
+  else parsha = `Недельная глава: ${parshaText(dia.parsha)}.`;
+  const same = dia.chag === isr.chag && dia.parsha.join() === isr.parsha.join();
+  if (!same) parsha += isr.chag ? " В Израиле в эту субботу праздничное чтение." : ` В Израиле читают другую главу: ${parshaText(isr.parsha)}.`;
+  return [{ start: "evening", shabbat: true, text: "Шабат", parsha, rows }];
+}
+
 function birthdaysOn(f) {
   const out = [];
   const ty = C.hebrewFromFixed(f).y;
@@ -136,6 +194,7 @@ function eventsFor(today) {
     for (const e of birthdaysOn(f)) ev.push({ ...e, f });
     for (const e of holidaysOn(f)) ev.push({ ...e, f });
   }
+  for (const f of days) for (const e of shabbatOn(f)) ev.push({ ...e, f });   // Шабат в конце сообщения
   return ev;
 }
 
@@ -145,6 +204,11 @@ function buildMessage(today) {
   const lines = ["Доброе утро, семья! ☀️", ""];
   for (const e of ev) {
     const when = relWhen(today, e.f, e.start);
+    if (e.shabbat) {
+      if (lines.length > 2) lines.push("");
+      lines.push(`🕯️ ${when} начинается Шабат.`, e.parsha, "", "Зажигание свечей 🕯️ и исход Шабата ✨:", ...e.rows, "", "Шабат шалом! 🤍");
+      continue;
+    }
     lines.push(e.start === "dawn" ? `${when} ${e.text}` : `${when} начинается ${e.text}`);
   }
   lines.push("", `Теилим для семьи: ${SITE_URL}`);

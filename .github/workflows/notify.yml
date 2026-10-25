@@ -28,6 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Install the Jewish calendar library (Hebcal)
+        run: npm install --no-save --no-package-lock --prefix notify @hebcal/core@5.8.0
       - name: Build and send today's message
         env:
           TZ: Asia/Dubai
