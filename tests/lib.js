@@ -17,7 +17,10 @@ function loadPage() {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const js = html.split("<script>")[1].split("</script>")[0].split("const RESULTS")[0];
   return new Function(js + `
-    return {PEOPLE, hebrewFromFixed, fixedFromHebrew, fixedFromYMD, birthdayInYear, roshChodesh, hLeap, compute, CITIES,
+    return {PEOPLE, hebrewFromFixed, fixedFromHebrew, fixedFromYMD, birthdayInYear, roshChodesh, hLeap, compute, CITIES, ISRAEL_ZONES,
+            holidaySpans, spanTimes, bannersAt, shabbatAt, parshaFor, PARSHA_TABLE, PARSHA_NAMES,
+            sunsetOn, candlesOn, havdalahOn, fastEndOn, dawnOn,
+            place(tz){ const [lat, lon, name] = CITIES[tz]; return {lat, lon, name, israel: ISRAEL_ZONES.has(tz)}; },
             setToday(f){ hebToday = () => ({fixed: f, evening: false}); }};`)();
 }
 

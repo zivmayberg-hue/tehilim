@@ -2,6 +2,8 @@
 // test dates in Dubai, Jerusalem and Bucharest. Clicks every button and checks: no errors, nothing scrolls
 // sideways, chapters match Hebcal, iPad shows two columns, the reader shows Hebrew with nikud but no
 // cantillation and keeps maqaf words together, and the sunset switch happens at the phone's own city.
+// Also: the Shabbat card and holiday banners with the city name next to every time, "ваше время" for an unknown
+// time zone, and ?date/time/tz working only on the preview site, never on the live address.
 "use strict";
 const path = require("path");
 const { chromium } = require("playwright");
@@ -29,7 +31,7 @@ function instant(tz, y, m, d, hh = 12, mm = 0) {
 }
 const ymd = hd => { const g = hd.greg(); return [g.getFullYear(), g.getMonth() + 1, g.getDate()]; };
 
-// Test dates (local noon): a Friday, Rosh Chodesh Kislev, Rosh Hashana, Aron's birthday, 3 days before Natalia's
+// Test dates (local noon): Fridays, Rosh Chodesh Kislev, Rosh Hashana, Hanukkah, a fast, Purim, Aron's birthday, 3 days before Natalia's
 const aron = P.PEOPLE.find(p => p.name === "Арон"), natalia = P.PEOPLE.find(p => p.name === "Наталья");
 const nb = new H.HDate(hebcalBirthday(birthFixed(natalia), 5787));   // summer 2027
 const DATES = {
@@ -38,6 +40,24 @@ const DATES = {
   "Rosh Hashana 5788": ymd(new H.HDate(1, "Tishrei", 5788)),
   "Aron's birthday": ymd(new H.HDate(hebcalBirthday(birthFixed(aron), 5787))),
   "3 days before Natalia's": ymd(new H.HDate(nb.abs() - 3)),
+  "Hanukkah Friday": [2026, 12, 4],
+  "10 Tevet": [2026, 12, 20],
+  "Purim 2027": ymd(new H.HDate(14, "Adar II", 5787)),
+  "Friday 2027-06-18": [2027, 6, 18],
+};
+const CITY = { "Asia/Dubai": "Дубай", "Asia/Jerusalem": "Герцлия", "Europe/Bucharest": "Бухарест" };
+// What each date must show: text in the Shabbat card (null = no card) and in the banners ("" = no banners)
+const EXPECT = {
+  "Friday 2026-10-30": { shabbat: ["Шабат шалом!", "Недельная глава: Вайера"], banners: [] },
+  "Rosh Chodesh Kislev": { shabbat: null, banners: [] },
+  "Rosh Hashana 5788": { shabbat: ["Шабат шалом!", "В эту субботу праздничное чтение Торы."], banners: ["Рош а-Шана", "Начался 5788 год. Шана това!"] },   // a Saturday
+  "Aron's birthday": { shabbat: null, banners: [] },
+  "3 days before Natalia's": { shabbat: null, banners: [] },
+  "Hanukkah Friday": { shabbat: ["Шабат шалом!", "Вайешев"], banners: ["Ханука", "Сегодня вечером зажигаем 1 свечу.",
+    "Сначала зажигаем свечи Хануки, потом субботние.", "Открыть Псалом 30"] },
+  "10 Tevet": { shabbat: null, banners: ["Пост 10 Тевета", "Сегодня пост.", "Начало поста", "Конец поста"] },
+  "Purim 2027": { shabbat: null, banners: ["Пурим", "Пурим самеах!", "Открыть Псалом 22"] },
+  "Friday 2027-06-18": { shabbat: ["Шабат шалом!"], banners: [], israel: "Недельная глава: Беаалотха", diaspora: "Недельная глава: Насо" },
 };
 
 async function newContext(browser, device, scheme, tz) {
@@ -92,8 +112,20 @@ const todayText = page => page.textContent("#today");
       // Banners on special days
       const rcVisible = await page.isVisible("#rc"), rct = rcVisible ? await page.textContent("#rct") : "";
       if (label === "Rosh Chodesh Kislev") R.check(rct.startsWith("Сегодня Рош Ходеш Кислев"), `${tag}: Rosh Chodesh banner "${rct}"`);
-      else if (label === "Rosh Hashana 5788") R.check(rct === "Сегодня Рош а-Шана!", `${tag}: Rosh Hashana banner "${rct}"`);
-      else R.check(!rcVisible, `${tag}: unexpected banner "${rct}"`);
+      else R.check(!rcVisible, `${tag}: unexpected Rosh Chodesh banner "${rct}"`);
+      const ex = EXPECT[label], city = CITY[tz];
+      const shText = await page.isVisible("#shabbat") ? await page.textContent("#shabbat") : null;
+      const bText = await page.textContent("#banners");
+      if (ex.shabbat === null) R.check(shText === null, `${tag}: unexpected Shabbat card "${shText}"`);
+      else {
+        const want = [...ex.shabbat, ex.israel && (tz === "Asia/Jerusalem" ? ex.israel : ex.diaspora)].filter(Boolean);
+        R.check(shText && want.every(w => shText.includes(w)), `${tag}: Shabbat card "${shText}" should contain ${want}`);
+      }
+      R.check(ex.banners.length ? ex.banners.every(w => bText.includes(w)) : bText === "", `${tag}: banners "${bText}" should contain ${ex.banners}`);
+      // Every time on the page is a clean hh:mm with this city's name next to it; the date line names the city
+      const tiles = await page.$$eval(".tile", els => els.map(e => [e.querySelector(".v").textContent, e.querySelector(".c").textContent]));
+      R.check(tiles.every(([v, c]) => /^\d\d:\d\d$/.test(v) && c === city), `${tag}: time tiles ${JSON.stringify(tiles)}`);
+      R.check(t.includes(`Город: ${city}.`), `${tag}: city missing in "${t}"`);
       if (label === "Aron's birthday") R.check((await page.textContent("#out")).includes("Сегодня день рождения!"), `${tag}: no birthday note`);
       if (label === "3 days before Natalia's") R.check((await page.textContent("#out")).includes("Через 3 дня день рождения"), `${tag}: no "in 3 days" note`);
 
@@ -161,6 +193,45 @@ const todayText = page => page.textContent("#today");
     }
     await ctx.close();
   }
+  // Unknown time zone: times are labelled "ваше время" and no city is named
+  {
+    const ctx = await newContext(browser, "iPhone", "light", "Atlantic/Azores"), errors = [];
+    const page = await open(ctx, instant("Atlantic/Azores", 2026, 10, 30, 12), errors); loads++;
+    const tiles = await page.$$eval(".tile .c", els => els.map(e => e.textContent)), t = await todayText(page);
+    R.check(tiles.length === 2 && tiles.every(c => c === "ваше время") && !t.includes("Город:"), `unknown zone: tiles ${tiles}, "${t}"`);
+    R.check(errors.length === 0, `unknown zone: ${errors.join("; ")}`);
+    await ctx.close();
+  }
+
+  // Travel: London and New York show their own city names next to the times
+  for (const [tz, city] of [["Europe/London", "Лондон"], ["America/New_York", "Нью-Йорк"]]) {
+    const ctx = await newContext(browser, "iPhone", "light", tz), errors = [];
+    const page = await open(ctx, instant(tz, 2026, 10, 30, 12), errors); loads++;
+    const tiles = await page.$$eval(".tile .c", els => els.map(e => e.textContent)), t = await todayText(page);
+    R.check(tiles.length === 2 && tiles.every(c => c === city) && t.includes(`Город: ${city}.`), `${tz}: tiles ${tiles}, "${t}"`);
+    R.check(errors.length === 0 && await noSideScroll(page), `${tz}: errors or sideways scroll ${errors.join("; ")}`);
+    await ctx.close();
+  }
+
+  // ?date&time&tz: honoured on the preview site, ignored on the live site
+  {
+    const ctx = await newContext(browser, "iPhone", "light", "Asia/Dubai");
+    const html = require("fs").readFileSync(path.join(__dirname, "..", "index.html"));
+    await ctx.route(/^https:\/\/zivmayberg-hue\.github\.io\//, route => route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: html }));
+    const q = "?date=2026-12-04&time=19:00&tz=Asia/Jerusalem";
+    for (const [site, honoured] of [["tehilim", false], ["tehilim-preview", true]]) {
+      const errors = [], page = await open(ctx, instant("Asia/Dubai", 2026, 10, 27, 12), errors);
+      await page.goto(`https://zivmayberg-hue.github.io/${site}/${q}`); loads++;
+      const t = await todayText(page), b = await page.textContent("#banners");
+      const ok = honoured ? t.includes("4 декабря") && t.includes("Город: Герцлия.") && b.includes("Ханука")
+                          : t.includes("27 октября") && t.includes("Город: Дубай.") && b === "";
+      R.check(ok, `${site}${q}: ${honoured ? "should" : "must not"} use the parameters: "${t}" banners "${b}"`);
+      R.check(errors.length === 0, `${site}: ${errors.join("; ")}`);
+      await page.close();
+    }
+    await ctx.close();
+  }
+
   await browser.close();
   R.done(`${loads} page loads, ${clicks} clicks`);
 })().catch(e => { console.error(e); process.exitCode = 1; });
