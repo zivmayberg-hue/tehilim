@@ -21,7 +21,7 @@ A family page showing each family member's Tehillim chapter by Hebrew age, plus 
 
 ## Location rules
 - Anything location-based on the page (sunset switch, Shabbat and holiday times) must follow the city of the phone's time zone and show that city's name; never assume a fixed city on the page.
-  - `CITIES` in `index.html` maps each time zone to [latitude, longitude, Russian city name]; `Asia/Jerusalem` is Herzliya. An unknown time zone falls back to a longitude from the UTC offset and is labelled "ваше время".
+  - `CITIES` in `index.html` maps each common time zone worldwide (and the aliases iPhones report) to [latitude, longitude, Russian city name]; `Asia/Jerusalem` is Herzliya with 18-minute candle lighting. An unknown time zone falls back to a longitude from the UTC offset and is labelled "ваше время".
   - The weekly portion follows the Israel schedule when the time zone is in `ISRAEL_ZONES`, the diaspora schedule otherwise. Holidays on the page always follow the diaspora rules, like the reminders.
 - The reminders are different: the morning check runs on Dubai time, and the Shabbat block always lists the five fixed cities: Dubai, Herzliya, Bucharest, Kyiv, Chernivtsi.
 
@@ -70,4 +70,5 @@ tests/run.sh
 - `banners.test.js`: every day to 2036: holiday banners on the page show from the day before until the last day exactly as Hebcal (diaspora) gives, the right Hanukkah candle count each evening, Psalms 30 and 22 on Hanukkah and Purim, and the Shabbat card from Friday until havdalah.
 - `times.test.js`: every week to 2036 in Dubai, Herzliya and Bucharest: Shabbat candle lighting, havdalah and fast start and end times on the page show the same minute as Hebcal.
 - `parsha.test.js`: the embedded portion table matches Hebcal for every Saturday (diaspora and Israel), equals the generator's output, and reaches at least 12 months ahead.
+- `cities.test.js`: every time zone in `CITIES` is real, has a Russian city name and coordinates that fit the zone; Asia/Jerusalem is Herzliya.
 - `page.test.js`: `index.html` in headless Chromium at iPhone and iPad sizes, light and dark, in Dubai, Jerusalem and Bucharest on test dates; clicks every button; checks no errors, no sideways scrolling, chapters vs Hebcal, two columns on iPad, nikud without cantillation, maqaf kept together, no requests except Google Fonts, the sunset switch at the phone's own city, the Shabbat card and banners with the city name next to every time, "ваше время" for an unknown time zone, and `?date` working on the preview address only.

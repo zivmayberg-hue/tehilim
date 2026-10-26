@@ -195,11 +195,21 @@ const todayText = page => page.textContent("#today");
   }
   // Unknown time zone: times are labelled "ваше время" and no city is named
   {
-    const ctx = await newContext(browser, "iPhone", "light", "Atlantic/Reykjavik"), errors = [];
-    const page = await open(ctx, instant("Atlantic/Reykjavik", 2026, 10, 30, 12), errors); loads++;
+    const ctx = await newContext(browser, "iPhone", "light", "Atlantic/Azores"), errors = [];
+    const page = await open(ctx, instant("Atlantic/Azores", 2026, 10, 30, 12), errors); loads++;
     const tiles = await page.$$eval(".tile .c", els => els.map(e => e.textContent)), t = await todayText(page);
     R.check(tiles.length === 2 && tiles.every(c => c === "ваше время") && !t.includes("Город:"), `unknown zone: tiles ${tiles}, "${t}"`);
     R.check(errors.length === 0, `unknown zone: ${errors.join("; ")}`);
+    await ctx.close();
+  }
+
+  // Travel: London and New York show their own city names next to the times
+  for (const [tz, city] of [["Europe/London", "Лондон"], ["America/New_York", "Нью-Йорк"]]) {
+    const ctx = await newContext(browser, "iPhone", "light", tz), errors = [];
+    const page = await open(ctx, instant(tz, 2026, 10, 30, 12), errors); loads++;
+    const tiles = await page.$$eval(".tile .c", els => els.map(e => e.textContent)), t = await todayText(page);
+    R.check(tiles.length === 2 && tiles.every(c => c === city) && t.includes(`Город: ${city}.`), `${tz}: tiles ${tiles}, "${t}"`);
+    R.check(errors.length === 0 && await noSideScroll(page), `${tz}: errors or sideways scroll ${errors.join("; ")}`);
     await ctx.close();
   }
 

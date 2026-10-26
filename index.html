@@ -249,20 +249,69 @@ function ruMonth(y, m){                      // родительный паде�
 /* ===== ГОРОД, ВРЕМЯ И ЗАХОД СОЛНЦА. Еврейский день начинается с захода.
    Всё, что зависит от места, берётся по часовому поясу телефона: [широта, долгота, город]. ===== */
 const CITIES = {
-  "Asia/Dubai":[25.20,55.27,"Дубай"], "Asia/Jerusalem":[32.17,34.84,"Герцлия"], "Asia/Tel_Aviv":[32.08,34.78,"Тель-Авив"],
-  "Europe/Bucharest":[44.43,26.10,"Бухарест"], "Asia/Nicosia":[34.68,33.04,"Никосия"], "Asia/Famagusta":[35.12,33.94,"Фамагуста"],
-  "Europe/Kiev":[50.45,30.52,"Киев"], "Europe/Kyiv":[50.45,30.52,"Киев"], "Europe/Moscow":[55.76,37.62,"Москва"],
-  "Europe/London":[51.51,-0.13,"Лондон"], "Europe/Paris":[48.86,2.35,"Париж"], "Europe/Berlin":[52.52,13.40,"Берлин"],
-  "Europe/Rome":[41.90,12.50,"Рим"], "Europe/Madrid":[40.42,-3.70,"Мадрид"], "Europe/Vienna":[48.21,16.37,"Вена"],
-  "Europe/Zurich":[47.38,8.54,"Цюрих"], "Europe/Prague":[50.08,14.44,"Прага"], "Europe/Warsaw":[52.23,21.01,"Варшава"],
-  "Europe/Budapest":[47.50,19.04,"Будапешт"], "Europe/Athens":[37.98,23.73,"Афины"], "Europe/Istanbul":[41.01,28.98,"Стамбул"],
-  "Europe/Amsterdam":[52.37,4.90,"Амстердам"], "Europe/Brussels":[50.85,4.35,"Брюссель"], "Europe/Lisbon":[38.72,-9.14,"Лиссабон"],
-  "Europe/Sofia":[42.70,23.32,"София"], "Europe/Riga":[56.95,24.11,"Рига"], "Europe/Vilnius":[54.69,25.28,"Вильнюс"], "Europe/Tallinn":[59.44,24.75,"Таллин"],
-  "Asia/Tbilisi":[41.69,44.80,"Тбилиси"], "Asia/Baku":[40.41,49.87,"Баку"], "Asia/Almaty":[43.24,76.93,"Алматы"], "Asia/Tashkent":[41.30,69.24,"Ташкент"],
-  "Asia/Bangkok":[13.76,100.50,"Бангкок"], "Asia/Singapore":[1.35,103.82,"Сингапур"], "Asia/Hong_Kong":[22.32,114.17,"Гонконг"], "Asia/Tokyo":[35.68,139.69,"Токио"],
-  "America/New_York":[40.71,-74.01,"Нью-Йорк"], "America/Toronto":[43.65,-79.38,"Торонто"], "America/Chicago":[41.88,-87.63,"Чикаго"],
-  "America/Denver":[39.74,-104.99,"Денвер"], "America/Los_Angeles":[34.05,-118.24,"Лос-Анджелес"], "America/Sao_Paulo":[-23.55,-46.63,"Сан-Паулу"],
-  "Australia/Sydney":[-33.87,151.21,"Сидней"], "Africa/Johannesburg":[-26.20,28.05,"Йоханнесбург"]
+  // Ближний Восток
+  "Asia/Jerusalem":[32.17,34.84,"Герцлия"], "Asia/Tel_Aviv":[32.08,34.78,"Тель-Авив"], "Asia/Dubai":[25.20,55.27,"Дубай"],
+  "Asia/Muscat":[23.59,58.41,"Маскат"], "Asia/Qatar":[25.29,51.53,"Доха"], "Asia/Bahrain":[26.23,50.59,"Манама"],
+  "Asia/Kuwait":[29.38,47.99,"Эль-Кувейт"], "Asia/Riyadh":[24.71,46.68,"Эр-Рияд"], "Asia/Amman":[31.95,35.93,"Амман"],
+  "Asia/Beirut":[33.89,35.50,"Бейрут"], "Asia/Damascus":[33.51,36.29,"Дамаск"], "Asia/Baghdad":[33.31,44.37,"Багдад"],
+  "Asia/Tehran":[35.69,51.39,"Тегеран"], "Africa/Cairo":[30.04,31.24,"Каир"], "Asia/Nicosia":[35.17,33.36,"Никосия"],
+  "Europe/Nicosia":[35.17,33.36,"Никосия"], "Asia/Famagusta":[35.12,33.94,"Фамагуста"],
+  // Европа
+  "Europe/London":[51.51,-0.13,"Лондон"], "Europe/Dublin":[53.35,-6.26,"Дублин"], "Europe/Lisbon":[38.72,-9.14,"Лиссабон"],
+  "Atlantic/Madeira":[32.65,-16.91,"Фуншал"], "Atlantic/Canary":[28.12,-15.43,"Лас-Пальмас"], "Atlantic/Reykjavik":[64.15,-21.94,"Рейкьявик"],
+  "Europe/Paris":[48.86,2.35,"Париж"], "Europe/Brussels":[50.85,4.35,"Брюссель"], "Europe/Amsterdam":[52.37,4.90,"Амстердам"],
+  "Europe/Luxembourg":[49.61,6.13,"Люксембург"], "Europe/Monaco":[43.73,7.42,"Монако"], "Europe/Berlin":[52.52,13.40,"Берлин"],
+  "Europe/Zurich":[47.38,8.54,"Цюрих"], "Europe/Vienna":[48.21,16.37,"Вена"], "Europe/Prague":[50.08,14.44,"Прага"],
+  "Europe/Bratislava":[48.15,17.11,"Братислава"], "Europe/Budapest":[47.50,19.04,"Будапешт"], "Europe/Warsaw":[52.23,21.01,"Варшава"],
+  "Europe/Copenhagen":[55.68,12.57,"Копенгаген"], "Europe/Stockholm":[59.33,18.07,"Стокгольм"], "Europe/Oslo":[59.91,10.75,"Осло"],
+  "Europe/Helsinki":[60.17,24.94,"Хельсинки"], "Europe/Tallinn":[59.44,24.75,"Таллин"], "Europe/Riga":[56.95,24.11,"Рига"],
+  "Europe/Vilnius":[54.69,25.28,"Вильнюс"], "Europe/Rome":[41.90,12.50,"Рим"], "Europe/Malta":[35.90,14.51,"Валлетта"],
+  "Europe/Madrid":[40.42,-3.70,"Мадрид"], "Europe/Andorra":[42.51,1.52,"Андорра"], "Europe/Gibraltar":[36.14,-5.35,"Гибралтар"],
+  "Europe/Ljubljana":[46.06,14.51,"Любляна"], "Europe/Zagreb":[45.81,15.98,"Загреб"], "Europe/Belgrade":[44.79,20.45,"Белград"],
+  "Europe/Sarajevo":[43.86,18.41,"Сараево"], "Europe/Podgorica":[42.44,19.26,"Подгорица"], "Europe/Skopje":[41.99,21.43,"Скопье"],
+  "Europe/Tirane":[41.33,19.82,"Тирана"], "Europe/Athens":[37.98,23.73,"Афины"], "Europe/Sofia":[42.70,23.32,"София"],
+  "Europe/Bucharest":[44.43,26.10,"Бухарест"], "Europe/Chisinau":[47.01,28.86,"Кишинёв"], "Europe/Kiev":[50.45,30.52,"Киев"],
+  "Europe/Kyiv":[50.45,30.52,"Киев"], "Europe/Minsk":[53.90,27.56,"Минск"], "Europe/Istanbul":[41.01,28.98,"Стамбул"],
+  "Europe/Kaliningrad":[54.71,20.51,"Калининград"], "Europe/Moscow":[55.76,37.62,"Москва"], "Europe/Samara":[53.20,50.15,"Самара"],
+  // Кавказ, Россия и Средняя Азия
+  "Asia/Tbilisi":[41.69,44.80,"Тбилиси"], "Asia/Yerevan":[40.18,44.51,"Ереван"], "Asia/Baku":[40.41,49.87,"Баку"],
+  "Asia/Yekaterinburg":[56.84,60.61,"Екатеринбург"], "Asia/Novosibirsk":[55.03,82.92,"Новосибирск"], "Asia/Krasnoyarsk":[56.01,92.89,"Красноярск"],
+  "Asia/Irkutsk":[52.29,104.28,"Иркутск"], "Asia/Vladivostok":[43.12,131.89,"Владивосток"], "Asia/Almaty":[43.24,76.93,"Алматы"],
+  "Asia/Tashkent":[41.30,69.24,"Ташкент"], "Asia/Bishkek":[42.87,74.59,"Бишкек"], "Asia/Dushanbe":[38.56,68.79,"Душанбе"],
+  "Asia/Ashgabat":[37.96,58.33,"Ашхабад"],
+  // Азия
+  "Asia/Karachi":[24.86,67.01,"Карачи"], "Asia/Kolkata":[28.61,77.21,"Дели"], "Asia/Calcutta":[28.61,77.21,"Дели"],
+  "Asia/Kathmandu":[27.72,85.32,"Катманду"], "Asia/Katmandu":[27.72,85.32,"Катманду"], "Asia/Colombo":[6.93,79.86,"Коломбо"],
+  "Indian/Maldives":[4.18,73.51,"Мале"], "Asia/Dhaka":[23.81,90.41,"Дакка"], "Asia/Yangon":[16.84,96.17,"Янгон"],
+  "Asia/Rangoon":[16.84,96.17,"Янгон"], "Asia/Bangkok":[13.76,100.50,"Бангкок"], "Asia/Ho_Chi_Minh":[10.82,106.63,"Хошимин"],
+  "Asia/Saigon":[10.82,106.63,"Хошимин"], "Asia/Phnom_Penh":[11.56,104.93,"Пномпень"], "Asia/Kuala_Lumpur":[3.14,101.69,"Куала-Лумпур"],
+  "Asia/Singapore":[1.35,103.82,"Сингапур"], "Asia/Jakarta":[-6.21,106.85,"Джакарта"], "Asia/Makassar":[-8.65,115.22,"Бали"],
+  "Asia/Manila":[14.60,120.98,"Манила"], "Asia/Hong_Kong":[22.32,114.17,"Гонконг"], "Asia/Macau":[22.20,113.54,"Макао"],
+  "Asia/Shanghai":[31.23,121.47,"Шанхай"], "Asia/Taipei":[25.03,121.57,"Тайбэй"], "Asia/Seoul":[37.57,126.98,"Сеул"],
+  "Asia/Tokyo":[35.68,139.69,"Токио"], "Asia/Ulaanbaatar":[47.89,106.91,"Улан-Батор"],
+  // Австралия и Океания
+  "Australia/Sydney":[-33.87,151.21,"Сидней"], "Australia/Melbourne":[-37.81,144.96,"Мельбурн"], "Australia/Brisbane":[-27.47,153.03,"Брисбен"],
+  "Australia/Adelaide":[-34.93,138.60,"Аделаида"], "Australia/Perth":[-31.95,115.86,"Перт"], "Australia/Darwin":[-12.46,130.84,"Дарвин"],
+  "Australia/Hobart":[-42.88,147.33,"Хобарт"], "Pacific/Auckland":[-36.85,174.76,"Окленд"], "Pacific/Fiji":[-18.14,178.44,"Сува"],
+  "Pacific/Honolulu":[21.31,-157.86,"Гонолулу"], "Pacific/Tahiti":[-17.54,-149.57,"Папеэте"], "Pacific/Guam":[13.44,144.79,"Гуам"],
+  "Pacific/Noumea":[-22.27,166.44,"Нумеа"],
+  // Африка
+  "Africa/Casablanca":[33.57,-7.59,"Касабланка"], "Africa/Tunis":[36.81,10.18,"Тунис"], "Africa/Algiers":[36.75,3.06,"Алжир"],
+  "Africa/Dakar":[14.72,-17.47,"Дакар"], "Africa/Accra":[5.60,-0.19,"Аккра"], "Africa/Lagos":[6.52,3.38,"Лагос"],
+  "Africa/Addis_Ababa":[9.03,38.74,"Аддис-Абеба"], "Africa/Nairobi":[-1.29,36.82,"Найроби"], "Africa/Kampala":[0.35,32.58,"Кампала"],
+  "Africa/Dar_es_Salaam":[-6.79,39.21,"Дар-эс-Салам"], "Africa/Windhoek":[-22.56,17.08,"Виндхук"], "Africa/Maputo":[-25.97,32.57,"Мапуту"],
+  "Africa/Johannesburg":[-26.20,28.05,"Йоханнесбург"], "Indian/Mauritius":[-20.16,57.50,"Маврикий"], "Indian/Mahe":[-4.62,55.45,"Сейшелы"],
+  // Америка
+  "America/New_York":[40.71,-74.01,"Нью-Йорк"], "America/Detroit":[42.33,-83.05,"Детройт"], "America/Toronto":[43.65,-79.38,"Торонто"],
+  "America/Montreal":[45.50,-73.57,"Монреаль"], "America/Halifax":[44.65,-63.57,"Галифакс"], "America/Chicago":[41.88,-87.63,"Чикаго"],
+  "America/Winnipeg":[49.90,-97.14,"Виннипег"], "America/Denver":[39.74,-104.99,"Денвер"], "America/Edmonton":[53.55,-113.49,"Эдмонтон"],
+  "America/Phoenix":[33.45,-112.07,"Финикс"], "America/Los_Angeles":[34.05,-118.24,"Лос-Анджелес"], "America/Vancouver":[49.28,-123.12,"Ванкувер"],
+  "America/Anchorage":[61.22,-149.90,"Анкоридж"], "America/Mexico_City":[19.43,-99.13,"Мехико"], "America/Cancun":[21.16,-86.85,"Канкун"],
+  "America/Guatemala":[14.63,-90.51,"Гватемала"], "America/Costa_Rica":[9.93,-84.08,"Сан-Хосе"], "America/Panama":[8.98,-79.52,"Панама"],
+  "America/Havana":[23.11,-82.37,"Гавана"], "America/Jamaica":[18.00,-76.79,"Кингстон"], "America/Santo_Domingo":[18.49,-69.93,"Санто-Доминго"],
+  "America/Puerto_Rico":[18.47,-66.11,"Сан-Хуан"], "America/Bogota":[4.71,-74.07,"Богота"], "America/Caracas":[10.48,-66.90,"Каракас"],
+  "America/Lima":[-12.05,-77.04,"Лима"], "America/Santiago":[-33.45,-70.67,"Сантьяго"], "America/Argentina/Buenos_Aires":[-34.60,-58.38,"Буэнос-Айрес"],
+  "America/Buenos_Aires":[-34.60,-58.38,"Буэнос-Айрес"], "America/Montevideo":[-34.90,-56.16,"Монтевидео"], "America/Sao_Paulo":[-23.55,-46.63,"Сан-Паулу"]
 };
 const ISRAEL_ZONES = new Set(["Asia/Jerusalem", "Asia/Tel_Aviv"]);
 
