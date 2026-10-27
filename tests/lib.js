@@ -19,6 +19,7 @@ function loadPage() {
   return new Function(js + `
     return {PEOPLE, hebrewFromFixed, fixedFromHebrew, fixedFromYMD, birthdayInYear, roshChodesh, hLeap, compute, CITIES, ISRAEL_ZONES,
             holidaySpans, spanTimes, bannersAt, shabbatAt, parshaFor, PARSHA_TABLE, PARSHA_NAMES,
+            upcomingBirthdays, upcomingText,
             sunsetOn, candlesOn, havdalahOn, fastEndOn, dawnOn,
             place(tz){ const [lat, lon, name] = CITIES[tz]; return {lat, lon, name, israel: ISRAEL_ZONES.has(tz)}; },
             setToday(f){ hebToday = () => ({fixed: f, evening: false}); }};`)();
