@@ -2,15 +2,16 @@ name: Family reminder (Telegram now, WhatsApp later)
 
 on:
   # GitHub often starts scheduled runs hours late, so there are five runs each morning at off-peak minutes,
-  # 03:13 to 05:43 UTC = 07:13 to 09:43 Dubai (no daylight saving in Dubai). The first run that actually starts
+  # 06:13 to 08:43 UTC = 10:13 to 12:43 Dubai (no daylight saving in Dubai), 08:13 to 10:43 in Herzliya,
+  # Bucharest and Kyiv in winter, so nobody in Europe or Israel is woken early. The first run that actually starts
   # sends; the others find today's line in notify/sent.log and stop. A run that starts later than 2 hours
   # before sunset in Dubai sends to Telegram only (see notify.js).
   schedule:
-    - cron: "13 3 * * *"
-    - cron: "43 3 * * *"
-    - cron: "13 4 * * *"
-    - cron: "43 4 * * *"
-    - cron: "43 5 * * *"
+    - cron: "13 6 * * *"
+    - cron: "43 6 * * *"
+    - cron: "13 7 * * *"
+    - cron: "43 7 * * *"
+    - cron: "43 8 * * *"
   workflow_dispatch:
     inputs:
       mode:

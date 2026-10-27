@@ -1,4 +1,4 @@
-// Morning runs of the reminder: five runs a day (03:13 to 05:43 UTC) must send exactly once, on the first run,
+// Morning runs of the reminder: five runs a day (06:13 to 08:43 UTC) must send exactly once, on the first run,
 // sharing notify/sent.log like the serialized GitHub runs do; nothing on Shabbat or Yom Tov; a run that starts
 // later than 2 hours before sunset in Dubai goes to Telegram only, with the warning line; a failed send is retried
 // by the next run. Also checks the workflow file: the five times, one-at-a-time runs, fresh checkout, safe push.
@@ -10,7 +10,7 @@ const { H, notify, dateFromFixed, todayDubai, endOfYear, iso, isShabbatOrYomTov,
 
 const N = notify(), R = reporter("Morning runs: one send per day, sunset cutoff, workflow setup");
 const start = todayDubai(), end = endOfYear(2036);
-const RUNS = [[3, 13], [3, 43], [4, 13], [4, 43], [5, 43]];             // UTC
+const RUNS = [[6, 13], [6, 43], [7, 13], [7, 43], [8, 43]];             // UTC
 const at = (f, h, m) => dateFromFixed(f).getTime() + (h * 60 + m) * 60000;   // TZ=UTC in tests
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tehilim-runs-"));
 const quiet = async fn => { const log = console.log; console.log = () => {}; try { return await fn(); } finally { console.log = log; } };
@@ -61,16 +61,16 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
     const f = start + [...Array(30).keys()].find(k => N.buildMessage(start + k)), log = path.join(dir, "fail"), group = [];
     let fail = true;
     const sendGroup = async t => { if (fail) { fail = false; throw new Error("network"); } group.push(t); };
-    let first = "ok"; try { await quiet(() => N.run({ today: f, now: at(f, 3, 13), log, sendGroup })); } catch (e) { first = "threw"; }
-    const second = await quiet(() => N.run({ today: f, now: at(f, 3, 43), log, sendGroup }));
-    const third = await quiet(() => N.run({ today: f, now: at(f, 4, 13), log, sendGroup }));
+    let first = "ok"; try { await quiet(() => N.run({ today: f, now: at(f, 6, 13), log, sendGroup })); } catch (e) { first = "threw"; }
+    const second = await quiet(() => N.run({ today: f, now: at(f, 6, 43), log, sendGroup }));
+    const third = await quiet(() => N.run({ today: f, now: at(f, 7, 13), log, sendGroup }));
     R.check(first === "threw" && second === "sent" && third === "already" && group.length === 1, `failed send: ${first}, ${second}, ${third}, sent ${group.length}`);
   }
 
   // 4. Workflow file
   const yml = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "notify.yml"), "utf8");
   const crons = [...yml.matchAll(/cron:\s*"([^"]+)"/g)].map(m => m[1]);
-  R.check(JSON.stringify(crons) === JSON.stringify(["13 3 * * *", "43 3 * * *", "13 4 * * *", "43 4 * * *", "43 5 * * *"]), `cron times ${crons}`);
+  R.check(JSON.stringify(crons) === JSON.stringify(["13 6 * * *", "43 6 * * *", "13 7 * * *", "43 7 * * *", "43 8 * * *"]), `cron times ${crons}`);
   R.check(/concurrency:\s*\n\s*group: whatsapp-reminder\s*\n\s*cancel-in-progress: false/.test(yml), "runs must be one at a time (concurrency group, no cancelling the running one)");
   R.check(/actions\/checkout@v4\s*\n\s*with:\s*\n\s*ref: \$\{\{ github\.ref \}\}/.test(yml), "checkout must take the branch as it is when the run starts");
   R.check(/git pull --rebase[^\n]*&& git push/.test(yml) && /for i in 1 2 3/.test(yml), "the log push must pull first and retry");
