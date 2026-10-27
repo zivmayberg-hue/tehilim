@@ -588,6 +588,48 @@ function hebNum(n){
   let s=""; while(n>0){ if(n===15){s+="טו";break} if(n===16){s+="טז";break}
     for(const [v,l] of map){ if(n>=v){s+=l;n-=v;break} } } return s;
 }
+/* ===== СТАТИСТИКА (Umami Cloud) =====
+   Только на настоящем сайте: адрес /tehilim/ без ?date, ?time, ?tz, и если на этом устройстве её не выключили
+   адресом ?stats=off (включить снова: ?stats=on). На сайте предпросмотра скрипт не загружается никогда.
+   Скрипт подключается сам с data-auto-track="false"; просмотр страницы отправляем мы, после этих проверок.
+   Если Umami заблокирован, медленный или нет интернета, страница работает как обычно, события просто теряются. */
+const STATS_OFF_KEY = "tehilim-stats-off";
+let statsQueue = null;                      // события до загрузки скрипта; null = статистики нет
+function statsAllowed(){
+  if (typeof location === "undefined" || location.hostname !== "zivmayberg-hue.github.io" || !location.pathname.startsWith("/tehilim/")) return false;
+  const q = new URLSearchParams(location.search);
+  if (q.has("date") || q.has("time") || q.has("tz")) return false;
+  try {
+    if (q.get("stats") === "off") localStorage.setItem(STATS_OFF_KEY, "1");
+    if (q.get("stats") === "on") localStorage.removeItem(STATS_OFF_KEY);
+    if (localStorage.getItem(STATS_OFF_KEY) === "1") return false;
+  } catch(e){ if (q.get("stats") === "off") return false; }
+  return true;
+}
+function stat(name, data){
+  if (!statsQueue) return;
+  const ev = [name, Object.assign({tz: TZ || "unknown"}, data)];
+  if (window.umami && typeof window.umami.track === "function"){ try { window.umami.track(...ev); } catch(e){} }
+  else if (statsQueue.length < 50) statsQueue.push(ev);
+}
+function startStats(){
+  if (!statsAllowed()) return;
+  statsQueue = [];
+  const s = document.createElement("script");
+  s.async = true; s.src = "https://cloud.umami.is/script.js";
+  s.setAttribute("data-website-id", "deea2162-7faf-4852-80f9-dd5d77e49baa");
+  s.setAttribute("data-auto-track", "false");
+  s.onload = () => {
+    try {
+      if (!(window.umami && typeof window.umami.track === "function")) return;
+      window.umami.track();                 // один просмотр страницы на открытие
+      for (const ev of statsQueue.splice(0)) window.umami.track(...ev);
+    } catch(e){}
+  };
+  s.onerror = () => { statsQueue = null; };
+  document.head.appendChild(s);
+}
+
 /* ===== ОТМЕТКИ «ПРОЧИТАНО» =====
    Каждый читает свой псалом отдельно, даже если номер совпадает. Отметки хранятся только на этом устройстве
    (localStorage) по еврейской дате: на закате в городе телефона начинается новый день, и отметки пустые.
@@ -603,7 +645,7 @@ function readToday(){
 }
 function setRead(name, on){
   const day = hebToday().fixed, read = readToday().filter(x => x !== name);
-  if (on) read.push(name);
+  if (on){ read.push(name); stat("read"); }
   ticksMem = {day, read};
   try { localStorage.setItem(TICKS_KEY, JSON.stringify(ticksMem)); } catch(e){}
 }
@@ -624,6 +666,7 @@ function readButton(name, single){
   show(); return b;
 }
 async function openReader(items, title){
+  if (items.length === 1) stat("psalm", {chapter: items[0].ch});
   const R=document.getElementById("reader"), inner=document.getElementById("rinner");
   document.getElementById("rtitle").textContent = title;
   inner.innerHTML = '<p class="info">Загрузка…</p>';
@@ -651,6 +694,7 @@ function closeReader(){ document.getElementById("reader").hidden=true; document.
 document.getElementById("back").addEventListener("click", closeReader);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeReader(); });
 document.getElementById("openall").addEventListener("click", ()=>{
+  stat("all");
   // по одному разделу на человека, в порядке карточек, даже если номер псалма повторяется
   openReader(RESULTS.map(r => ({ch:r.ch, names:[r.name], person:r.name})), "Все псалмы семьи");
 });
@@ -791,6 +835,7 @@ function setBig(on){ document.body.classList.toggle("big", on); document.getElem
 btn.addEventListener("click", ()=>setBig(!document.body.classList.contains("big")));
 try{ setBig(localStorage.getItem("big")==="1"); }catch(e){ setBig(false); }
 render();
+startStats();
 // Обновляем страницу, когда меняется день, наступает закат или появляется/исчезает карточка
 const dayKey = () => { const t = now(), p = partsOf(t), f = fixedFromYMD(p.y, p.m0, p.d), P = place();
   return [f, hebToday().evening, !!shabbatAt(f, t, P), bannersAt(f, t, P).map(b => b.key + b.lines.join() + b.tiles.length).join()].join("|"); };

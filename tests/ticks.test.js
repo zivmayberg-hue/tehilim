@@ -32,6 +32,7 @@ async function newContext(browser, { device = "iPhone", scheme = "light", tz = "
     const u = route.request().url();
     if (u.startsWith("file:")) return route.continue();
     if (u.startsWith("https://fonts.googleapis.com/")) return route.fulfill({ status: 200, contentType: "text/css", body: "" });
+    if (u.startsWith("https://cloud.umami.is/")) return route.fulfill({ status: 200, contentType: "application/javascript", body: "" });   // statistics: see stats.test.js
     if (u.startsWith("https://zivmayberg-hue.github.io/")) return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: HTML });
     return route.abort();
   });
@@ -203,4 +204,4 @@ const N = P.PEOPLE.length;
 
   await browser.close();
   R.done("7 scenarios");
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exit(1); });   // exit even if a browser is still open

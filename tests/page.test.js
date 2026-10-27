@@ -234,4 +234,4 @@ const todayText = page => page.textContent("#today");
 
   await browser.close();
   R.done(`${loads} page loads, ${clicks} clicks`);
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exit(1); });   // exit even if a browser is still open
