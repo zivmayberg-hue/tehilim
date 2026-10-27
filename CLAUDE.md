@@ -5,7 +5,7 @@ A family page showing each family member's Tehillim chapter by Hebrew age, plus 
 ## Files
 - `index.html` is the whole site (single file, the Psalms text is embedded), served by GitHub Pages from main, root folder. `og.jpg` and `apple-touch-icon.png` are the share preview and home-screen icon. `.nojekyll` turns off Jekyll.
 - Search engines: the page is kept out of search results by the noindex tags in `index.html` only. `robots.txt` in this repository is not at the domain root (the site is served under a subpath), so crawlers never read it; it protects nothing.
-- `notify/notify.js` builds and sends the reminders; `.github/workflows/notify.yml` runs it daily at 04:00 UTC (08:00 Dubai) and installs `@hebcal/core` 5.8.0 at runtime.
+- `notify/notify.js` builds and sends the reminders; `.github/workflows/notify.yml` runs it five times each morning (03:13, 03:43, 04:13, 04:43, 05:43 UTC = 07:13 to 09:43 Dubai, because GitHub often starts scheduled runs late) and installs `@hebcal/core` 5.8.0 at runtime. Runs are one at a time (concurrency group), each checks out the branch as it is when it starts, and the first run that starts sends; the rest find today's line in `notify/sent.log` and stop. The log push pulls first and retries.
 - The family list (`PEOPLE`) lives only in `index.html`; `notify.js` reads it from there.
 - `notify/sent.log` records sent reminders, prevents duplicate sends and keeps the GitHub schedule active. The workflow commits it to main, so always `git pull --rebase` before committing.
 - `tests/` holds dev-only tests (see Tests). Nothing in it is loaded by the site or the workflow.
@@ -28,6 +28,7 @@ A family page showing each family member's Tehillim chapter by Hebrew age, plus 
 
 ## Reminder rules
 - One message per morning, only when something starts that evening (birthday, Rosh Chodesh, holiday, fast, Shabbat).
+- If a run starts later than 2 hours before sunset in Dubai, the message does not go to the group; it goes to the user's Telegram, starting with "⚠️ Напоминание опоздало, отправьте вручную, если ещё актуально:", and is logged so later runs stop.
 - Never post on Shabbat or Yom Tov (diaspora); announce on the last weekday before instead.
 - Shabbat block every Friday: candle lighting 18 minutes before sunset, havdalah at 8.5 degrees; weekly portion in Russian with Hebrew, plus a note when Israel reads a different portion.
 - Sending goes to WhatsApp or Telegram depending on repository settings; if WhatsApp fails, the message falls back to Telegram. Details in `CLAUDE.local.md`.
@@ -67,6 +68,7 @@ tests/run.sh
 - `birthdays.test.js`: every family member, every day from today to 2046: the page's chapter, "birthday today" and next birthday match Hebcal.
 - `holidays.test.js`: every day to 2036: `notify.js` holidays and Rosh Chodesh match Hebcal (diaspora); "(observed)" fasts count as matches.
 - `reminders.test.js`: every morning to 2036: each event announced exactly once, before it starts, never on Shabbat or Yom Tov; no em dashes or missing times in messages.
+- `runs.test.js`: every morning to 2036 with five runs sharing one log: exactly one send per day on the first run, none on Shabbat or Yom Tov, the 2-hours-before-sunset cutoff sends to Telegram only, a failed send is retried by the next run; and the workflow's five times, concurrency, checkout and push settings.
 - `shabbat.test.js`: every Saturday to 2036: times for all five cities and a translated portion, with the Israel note exactly when Israel reads differently.
 - `banners.test.js`: every day to 2036: holiday banners on the page show from the day before until the last day exactly as Hebcal (diaspora) gives, the right Hanukkah candle count each evening, Psalms 30 and 22 on Hanukkah and Purim, and the Shabbat card from Friday until havdalah.
 - `times.test.js`: every week to 2036 in Dubai, Herzliya and Bucharest: Shabbat candle lighting, havdalah and fast start and end times on the page show the same minute as Hebcal.

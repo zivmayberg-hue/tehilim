@@ -1,8 +1,16 @@
 name: Family reminder (Telegram now, WhatsApp later)
 
 on:
+  # GitHub often starts scheduled runs hours late, so there are five runs each morning at off-peak minutes,
+  # 03:13 to 05:43 UTC = 07:13 to 09:43 Dubai (no daylight saving in Dubai). The first run that actually starts
+  # sends; the others find today's line in notify/sent.log and stop. A run that starts later than 2 hours
+  # before sunset in Dubai sends to Telegram only (see notify.js).
   schedule:
-    - cron: "0 4 * * *"        # 04:00 UTC = 08:00 Dubai (no daylight saving in Dubai)
+    - cron: "13 3 * * *"
+    - cron: "43 3 * * *"
+    - cron: "13 4 * * *"
+    - cron: "43 4 * * *"
+    - cron: "43 5 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -15,6 +23,8 @@ on:
 permissions:
   contents: write
 
+# One run at a time: a queued run waits until the previous one has finished, including pushing sent.log.
+# (GitHub keeps at most one run waiting; a newer one replaces it, which is fine because one run is enough.)
 concurrency:
   group: whatsapp-reminder
   cancel-in-progress: false
@@ -24,7 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Check out the branch as it is when this run starts, so it sees the log pushed by the previous run
+      # (without ref, a run queued earlier would check out the older commit and could send twice).
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -50,5 +64,9 @@ jobs:
             git config user.email "tehilim-bot@users.noreply.github.com"
             git add notify/sent.log
             git commit -m "Reminder sent $(TZ=Asia/Dubai date +%F)"
-            git push
+            for i in 1 2 3; do
+              git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin "HEAD:$GITHUB_REF_NAME" && exit 0
+              sleep 10
+            done
+            echo "Could not save notify/sent.log"; exit 1
           fi

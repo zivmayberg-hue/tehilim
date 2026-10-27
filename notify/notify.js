@@ -15,6 +15,7 @@
 //   WA_GROUP_ID   id группы, вида 1203630xxxxxxxxx@g.us
 //   DRY_RUN=1     только показать сообщение, ничего не отправлять
 //   TODAY=YYYY-MM-DD   подставить дату (для проверки)
+//   NOW=2026-10-28T07:13:00+04:00   подставить момент запуска (для проверки опоздания)
 //   TEST_MESSAGE=1     отправить пробное сообщение
 "use strict";
 const fs = require("fs");
@@ -280,30 +281,51 @@ async function sendWhatsApp(text) {
   throw new Error("Не удалось отправить сообщение");
 }
 
-function todayFixed() {
+function todayFixed(now = Date.now()) {
   if (process.env.TODAY) { const [y, m, d] = process.env.TODAY.split("-").map(Number); return C.fixedFromYMD(y, m - 1, d); }
-  const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
   const [y, m, d] = p.split("-").map(Number);
   return C.fixedFromYMD(y, m - 1, d);
 }
 function isoFromFixed(f) { return new Date((f - 719163) * 86400000).toISOString().slice(0, 10); }
 
-async function main() {
-  const today = todayFixed(), iso = isoFromFixed(today);
-  const dry = process.env.DRY_RUN === "1";
-  if (process.env.TEST_MESSAGE === "1") {
+// ---------- опоздание ----------
+// Утром запусков несколько (GitHub часто запускает по расписанию с опозданием); отправляет первый, остальные видят
+// сегодняшнюю строку в sent.log и останавливаются. Если запуск начался позже, чем за 2 часа до заката в Дубае,
+// «сегодня вечером» в группе звучит уже поздно: тогда сообщение уходит только в Telegram, с пометкой.
+const LATE_BEFORE_SUNSET_MS = 2 * 3600 * 1000;
+const LATE_PREFIX = "⚠️ Напоминание опоздало, отправьте вручную, если ещё актуально:\n\n";
+function lateCutoff(today) {
+  const H = hebcal(), c = civil(today), dubai = SHABBAT_CITIES[0];
+  const sunset = new H.Zmanim(new H.GeoLocation(null, dubai.lat, dubai.lon, 0, dubai.tz), new Date(c.y, c.m, c.d), false).sunset();
+  return new Date(sunset.getTime() - LATE_BEFORE_SUNSET_MS);
+}
+const dubaiTime = d => new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+
+// Один запуск. Возвращает "none" | "already" | "sent" | "late" (в Telegram) | "dry"
+async function run({ today, now, dry = false, test = false, log = LOG, sendGroup = send, sendLate = sendTelegram }) {
+  const iso = isoFromFixed(today);
+  if (test) {
     const text = `Проверка связи ✅\nЭто бот «Теилим для семьи». Утром, перед днями рождения, Рош Ходешем и праздниками, здесь будет короткое напоминание.\n${SITE_URL}`;
-    console.log(text); if (!dry) await send(text); return;
+    console.log(text); if (!dry) await sendGroup(text); return dry ? "dry" : "sent";
   }
   const msg = buildMessage(today);
-  if (!msg) { console.log(iso, "сообщений нет"); return; }
-  const already = fs.existsSync(LOG) && fs.readFileSync(LOG, "utf8").split("\n").some(l => l.startsWith(iso + " "));
-  console.log(msg.text);
-  if (already && !dry) { console.log("Сегодня уже отправлено, пропускаю."); return; }
-  if (dry) return;
-  await send(msg.text);
-  fs.appendFileSync(LOG, `${iso} ${msg.events.map(e => e.name ? "ДР:" + e.name : e.text.split(/[.,]/)[0]).join(" | ")}\n`);
+  if (!msg) { console.log(iso, "сообщений нет"); return "none"; }
+  const already = fs.existsSync(log) && fs.readFileSync(log, "utf8").split("\n").some(l => l.startsWith(iso + " "));
+  if (already) { console.log(msg.text); console.log("Сегодня уже отправлено, пропускаю."); return "already"; }
+  const cutoff = lateCutoff(today), late = now >= cutoff.getTime(), text = late ? LATE_PREFIX + msg.text : msg.text;
+  if (late) console.log(`Запуск позже ${dubaiTime(cutoff)} по Дубаю (за 2 часа до заката): в группу не пишу, отправляю в Telegram.`);
+  console.log(text);
+  if (dry) { console.log(`Пробный запуск: ничего не отправлено (${late ? "ушло бы в Telegram" : "ушло бы в группу"}).`); return "dry"; }
+  if (late) await sendLate(text); else await sendGroup(text);
+  fs.appendFileSync(log, `${iso} ${msg.events.map(e => e.name ? "ДР:" + e.name : e.text.split(/[.,]/)[0]).join(" | ")}${late ? " (опоздание, Telegram)" : ""}\n`);
+  return late ? "late" : "sent";
 }
 
-module.exports = { send, sendTelegram, buildMessage, eventsFor, holidaysOn, birthdaysOn, isNoPostDay, C, dow };
+async function main() {
+  const now = process.env.NOW ? Date.parse(process.env.NOW) : Date.now();
+  await run({ today: todayFixed(now), now, dry: process.env.DRY_RUN === "1", test: process.env.TEST_MESSAGE === "1" });
+}
+
+module.exports = { send, sendTelegram, buildMessage, eventsFor, holidaysOn, birthdaysOn, isNoPostDay, C, dow, run, lateCutoff, LATE_PREFIX };
 if (require.main === module) main().catch(e => { console.error(e.message); process.exit(1); });
