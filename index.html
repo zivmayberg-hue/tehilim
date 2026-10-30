@@ -373,8 +373,9 @@ function place(){
   return {lat:32, lon: Math.min(east(Date.UTC(y, 0, 1)), east(Date.UTC(y, 6, 1))) / 4, name:"ваше время", israel:false, unknown:true};
 }
 /* Солнце по формулам NOAA Solar Calculator (как в Hebcal): момент, когда центр солнца на deg градусов ниже горизонта.
-   0.8333 = закат и восход (радиус солнца и рефракция), 8.5 = исход Шабата, 7.083 = конец поста, 16.1 = рассвет (rising). */
-function sunTime(y, m0, d, lat, lon, deg, rising){
+   0.8333 = закат и восход (радиус солнца и рефракция), 8.5 = исход Шабата и Йом Това, 6 = выход звёзд и конец поста,
+   16.9 = рассвет (rising). Рассвет и выход звёзд как на chabad.org (Алтер Ребе). */
+function sunTime(y, m0, d, lat, lon, deg, rising, strict){   // strict: null, если солнце не доходит до deg
   const rad = Math.PI/180, jd = Date.UTC(y, m0, d) / DAY + 2440587.5, W = -lon;   // NOAA: долгота к западу положительна
   const cent = j => (j - 2451545) / 36525;
   function sun(t){                           // склонение (градусы) и уравнение времени (минуты)
@@ -388,25 +389,32 @@ function sunTime(y, m0, d, lat, lon, deg, rising){
       - 0.5*q*q*Math.sin(4*L0*rad) - 1.25*e*e*Math.sin(2*M*rad));
     return {dec: Math.asin(Math.sin(eps*rad)*Math.sin(lambda*rad))/rad, eot};
   }
+  let never = false;
   const minutesUTC = t => {                  // время события в минутах от 0h UTC
     const s = sun(t);
     const cosH = Math.cos((90 + deg)*rad)/(Math.cos(lat*rad)*Math.cos(s.dec*rad)) - Math.tan(lat*rad)*Math.tan(s.dec*rad);
+    if (Math.abs(cosH) > 1) never = true;
     const H = Math.acos(Math.max(-1, Math.min(1, cosH)))/rad * (rising ? 1 : -1);   // полярный день/ночь не ломают расчёт
     return 720 + 4*(W - H) - s.eot;
   };
   const noon0 = 720 + 4*W - sun(cent(jd + W/360)).eot;
   const noon = 720 + 4*W - sun(cent(jd - 0.5 + noon0/1440)).eot;
   const first = minutesUTC(cent(jd + noon/1440));
-  return new Date(Date.UTC(y, m0, d) + minutesUTC(cent(jd + first/1440)) * 60000);
+  const t = Date.UTC(y, m0, d) + minutesUTC(cent(jd + first/1440)) * 60000;
+  return strict && never ? null : new Date(t);
 }
 function sunset(y, m0, d, lat, lon){ return sunTime(y, m0, d, lat, lon, 50/60, false); }
 function ymdFromFixed(f){ const u = new Date((f - RD_UNIX) * DAY); return [u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()]; }
-function sunOn(f, P, deg, rising){ const [y, m0, d] = ymdFromFixed(f); return sunTime(y, m0, d, P.lat, P.lon, deg, rising); }
+function sunOn(f, P, deg, rising, strict){ const [y, m0, d] = ymdFromFixed(f); return sunTime(y, m0, d, P.lat, P.lon, deg, rising, strict); }
 const sunsetOn = (f, P) => sunOn(f, P, 50/60, false);
 const candlesOn = (f, P) => new Date(Math.floor(sunsetOn(f, P) / 60000) * 60000 - 18 * 60000);   // за 18 минут до заката, минута не округляется вверх (как в Hebcal)
 const havdalahOn = (f, P) => sunOn(f, P, 8.5, false);
-const fastEndOn = (f, P) => sunOn(f, P, 7.083, false);
-const dawnOn = (f, P) => sunOn(f, P, 16.1, true);
+// Как на chabad.org: рассвет (начало поста) с округлением минуты вниз, выход звёзд (конец поста) вверх
+const fastEndOn = (f, P) => new Date(Math.ceil(Math.floor(sunOn(f, P, 6, false) / 1000) / 60) * 60000);   // доли секунды отбрасываем, как Hebcal
+function dawnOn(f, P){                        // летом на севере (Киев) солнце не опускается на 16.9°: тогда полночь, как на chabad.org
+  const t = sunOn(f, P, 16.9, true, true), set = sunsetOn(f - 1, P);
+  return new Date(Math.floor((t || set.getTime() + (sunOn(f, P, 50/60, true) - set) / 2) / 60000) * 60000);
+}
 const weekday = f => ((f % 7) + 7) % 7;                     // 0 = воскресенье ... 5 = пятница, 6 = суббота
 
 /* Сегодняшняя дата для еврейского календаря (как R.D.): после захода солнца уже следующий день */
@@ -454,7 +462,8 @@ function yearsWord(n){ const a=n%100,b=n%10;
 
 /* ===== ПРАЗДНИКИ (диаспора, те же даты и правила, что в notify.js) =====
    f0 = первый еврейский день, days = сколько дней. start: "evening" (накануне вечером) или "dawn" (пост с рассвета).
-   end: "havdalah" (выход звёзд, 8.5°), "fast" (конец поста, 7.083°) или "sunset". Посты переносятся с субботы. */
+   end: "havdalah" (исход Шабата и Йом Това, 8.5°), "fast" (выход звёзд, 6°) или "sunset". Посты переносятся с субботы.
+   Пост: малые посты с рассвета, Тиша бе-Ав и Йом Кипур с захода солнца накануне. */
 function holidaySpans(y){
   const H = (m, d) => fixedFromHebrew(y, m, d), adar = hLeap(y) ? 13 : 12;
   const offShabbat = f => weekday(f) === 6 ? f + 1 : f;
@@ -484,7 +493,8 @@ function spanTimes(s, P){
   else if (s.yt) start = weekday(s.f0 - 1) === 6 ? havdalahOn(s.f0 - 1, P) : candlesOn(s.f0 - 1, P);   // после Шабата: свечи после исхода
   else start = sunsetOn(s.f0 - 1, P);
   const end = s.end === "havdalah" ? havdalahOn(last, P) : s.end === "fast" ? fastEndOn(last, P) : sunsetOn(last, P);
-  return {start, end, last};
+  const fastStart = !s.fast ? null : s.start === "dawn" ? start : sunsetOn(s.f0 - 1, P);
+  return {start, end, last, fastStart};
 }
 function candlesWord(n){ return n === 1 ? "свечу" : n < 5 ? "свечи" : "свечей"; }
 
@@ -492,7 +502,7 @@ function candlesWord(n){ return n === 1 ? "свечу" : n < 5 ? "свечи" : 
 function bannersAt(today, t, P){
   const out = [], hy = hebrewFromFixed(today).y;
   for (const y of [hy, hy + 1]) for (const s of holidaySpans(y)){
-    const {start, end, last} = spanTimes(s, P);
+    const {start, end, last, fastStart} = spanTimes(s, P);
     if (today < s.f0 - 1 || today > last || t >= end) continue;
     const b = {key:s.key, title:s.title, lines:[], tiles:[], psalm:s.psalm || 0};
     const before = t < start, dayN = today - s.f0 + 1;
@@ -516,6 +526,7 @@ function bannersAt(today, t, P){
       else if (s.key === "purim") b.lines.push("Пурим самеах!");
       else if (s.days > 1) b.lines.push(`День ${Math.max(1, dayN)} из ${s.days}.`);
       if (s.yt && before) b.tiles.push({label: weekday(s.f0 - 1) === 6 ? "Свечи, после исхода Шабата" : "Зажигание свечей", time:start});
+      if (s.key === "yk" && before) b.tiles.push({label:"Начало поста", time:fastStart});
       if (s.key === "yk") b.tiles.push({label:"Конец поста", time:end});
       else if (s.yt && today === last && s.end === "havdalah" && weekday(last) !== 5) b.tiles.push({label:"Окончание праздника", time:end});
     }

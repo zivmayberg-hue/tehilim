@@ -32,7 +32,8 @@ function loadCalendar() {
   js = js.split("const RESULTS")[0];
   return new Function(js + `
     return {PEOPLE, hebrewFromFixed, fixedFromHebrew, fixedFromYMD, birthdayInYear, roshChodesh,
-            hLeap, hMonthsInYear, hMonthLength, ruMonth, ruMonthNom, yearsWord};`)();
+            hLeap, hMonthsInYear, hMonthLength, ruMonth, ruMonthNom, yearsWord,
+            holidaySpans, spanTimes, sunsetOn, candlesOn, havdalahOn};`)();
 }
 const C = loadCalendar();
 
@@ -58,26 +59,26 @@ function holidaysOn(f) {
     return g === f;
   };
   if (at(7, 1)) out.push({ start: "evening", text: `Рош а-Шана, начало ${y} года. Шана това у-метука! 🍎🍯` });
-  if (fastAt(7, 3)) out.push({ start: "dawn", text: "пост Гедальи, с рассвета до выхода звёзд." });
-  if (at(7, 10)) out.push({ start: "evening", text: "Йом Кипур. Гмар хатима това! 🕯️" });
+  if (fastAt(7, 3)) out.push({ start: "dawn", fast: "gedalia", text: "пост Гедальи, с рассвета до выхода звёзд." });
+  if (at(7, 10)) out.push({ start: "evening", fast: "yk", text: "Йом Кипур. Гмар хатима това! 🕯️" });
   if (at(7, 15)) out.push({ start: "evening", text: "Суккот. Хаг самеах! 🌿" });
   if (at(7, 22)) out.push({ start: "evening", text: "Шмини Ацерет, а на следующий вечер Симхат Тора. Хаг самеах! 📜" });
-  if (at(9, 25)) out.push({ start: "evening", text: "Ханука, зажигаем первую свечу. Хаг Ханука самеах! 🕎" });
+  if (at(9, 25)) out.push({ start: "evening", chanukah: true, text: "Ханука. Хаг Ханука самеах! 🕎" });
   {                                                  // 10 Тевета никогда не выпадает на субботу
-    if (at(10, 10)) out.push({ start: "dawn", text: "пост 10 Тевета, с рассвета до выхода звёзд." });
+    if (at(10, 10)) out.push({ start: "dawn", fast: "tevet10", text: "пост 10 Тевета, с рассвета до выхода звёзд." });
   }
   if (at(11, 15)) out.push({ start: "evening", text: "Ту би-Шват, Новый год деревьев. 🌳" });
   {                                                  // пост Эстер: если 13 Адара в субботу, переносится на четверг
     let g = C.fixedFromHebrew(y, adarLast(y), 13);
     if (dow(g) === 6) g -= 2;
-    if (g === f) out.push({ start: "dawn", text: "пост Эстер, с рассвета до выхода звёзд." });
+    if (g === f) out.push({ start: "dawn", fast: "esther", text: "пост Эстер, с рассвета до выхода звёзд." });
   }
-  if (at(adarLast(y), 14)) out.push({ start: "evening", text: "Пурим. Пурим самеах! 🎭" });
+  if (at(adarLast(y), 14)) out.push({ start: "evening", purim: true, text: "Пурим. Пурим самеах! 🎭" });
   if (at(1, 15)) out.push({ start: "evening", text: "Песах, первый седер. Хаг кашер ве-самеах! 🍷" });
   if (at(2, 18)) out.push({ start: "evening", text: "Лаг ба-Омер. 🔥" });
   if (at(3, 6)) out.push({ start: "evening", text: "Шавуот, праздник дарования Торы. Хаг самеах! 🌾" });
-  if (fastAt(4, 17)) out.push({ start: "dawn", text: "пост 17 Тамуза, с рассвета до выхода звёзд." });
-  if (fastAt(5, 9)) out.push({ start: "evening", text: "Тиша бе-Ав, пост до выхода звёзд следующего дня." });
+  if (fastAt(4, 17)) out.push({ start: "dawn", fast: "tammuz17", text: "пост 17 Тамуза, с рассвета до выхода звёзд." });
+  if (fastAt(5, 9)) out.push({ start: "evening", fast: "av9", text: "Тиша бе-Ав, пост до выхода звёзд следующего дня." });
 
   const rc = C.roshChodesh(h);                       // Рош Ходеш: объявляем только первый день
   if (rc && rc.kind === "rc") {
@@ -110,6 +111,20 @@ const PARSHA_RU = {
   "Vaetchanan":"Ваэтханан","Eikev":"Экев","Re'eh":"Ре'э","Shoftim":"Шофтим","Ki Teitzei":"Ки Теце","Ki Tavo":"Ки Таво",
   "Nitzavim":"Ницавим","Vayeilech":"Вайелех","Ha'azinu":"Аазину",
 };
+// Недельная глава на русском на ru.chabad.org: постоянные адреса страниц глав (список «Все главы Торы»)
+const PARSHA_AID = {
+  "Bereshit":719867,"Noach":719868,"Lech-Lecha":719869,"Vayera":719870,"Chayei Sara":719873,"Toldot":719874,"Vayetzei":719875,
+  "Vayishlach":719877,"Vayeshev":719878,"Miketz":719879,"Vayigash":719880,"Vayechi":719881,"Shemot":719920,"Vaera":719921,
+  "Bo":719922,"Beshalach":719923,"Yitro":719924,"Mishpatim":719925,"Terumah":719926,"Tetzaveh":719927,"Ki Tisa":719928,
+  "Vayakhel":719929,"Pekudei":719930,"Vayikra":719931,"Tzav":719932,"Shmini":719933,"Tazria":719934,"Metzora":719935,
+  "Achrei Mot":719936,"Kedoshim":719937,"Emor":719938,"Behar":719939,"Bechukotai":719940,"Bamidbar":719941,"Nasso":719942,
+  "Beha'alotcha":719943,"Sh'lach":719944,"Korach":719946,"Chukat":719947,"Balak":719948,"Pinchas":719949,"Matot":719950,
+  "Masei":719951,"Devarim":719952,"Vaetchanan":719953,"Eikev":719954,"Re'eh":719955,"Shoftim":719956,"Ki Teitzei":719957,
+  "Ki Tavo":719958,"Nitzavim":719959,"Vayeilech":719960,"Ha'azinu":719961,
+  "Vayakhel-Pekudei":856824,"Tazria-Metzora":877197,"Achrei Mot-Kedoshim":877217,"Behar-Bechukotai":877218,
+  "Chukat-Balak":932753,"Matot-Masei":932757,"Nitzavim-Vayeilech":967093,
+};
+const parshaLink = parsha => PARSHA_AID[parsha.join("-")] ? `https://ru.chabad.org/parshah/default_cdo/aid/${PARSHA_AID[parsha.join("-")]}` : null;
 let HC = null;
 function hebcal() { if (!HC) HC = require("@hebcal/core"); return HC; }
 function civil(f) { const d = new Date((f - 719163) * 86400000); return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate() }; }
@@ -144,9 +159,10 @@ function shabbatOn(f) {                               // f = суббота (е�
   let parsha;
   if (dia.chag) parsha = "В эту субботу праздничное чтение Торы.";
   else parsha = `Недельная глава: ${parshaText(dia.parsha)}.`;
+  const link = dia.chag ? null : parshaLink(dia.parsha);     // ссылка по главе диаспоры
   const same = dia.chag === isr.chag && dia.parsha.join() === isr.parsha.join();
   if (!same) parsha += isr.chag ? " В Израиле в эту субботу праздничное чтение." : ` В Израиле читают другую главу: ${parshaText(isr.parsha)}.`;
-  return [{ start: "evening", shabbat: true, text: "Шабат", parsha, rows }];
+  return [{ start: "evening", shabbat: true, text: "Шабат", parsha, rows, link }];
 }
 
 function birthdaysOn(f) {
@@ -169,19 +185,18 @@ function birthdaysOn(f) {
 }
 
 // ---------- сообщение на утро дня today ----------
-function relWhen(today, f, start) {
+function relWhen(today, f, start, fast = false) {
   // f = еврейский день события. Вечерние события начинаются вечером дня f-1, «рассветные» утром дня f.
   const civil = start === "evening" ? f - 1 : f;
   const diff = civil - today;
   const part = start === "evening" ? "вечером" : "";
   if (start === "evening") {
-    const ps = dow(civil) === 6 ? ", после Шабата," : "";
+    const ps = dow(civil) === 6 && !fast ? ", после Шабата," : "";   // пост в субботу вечером начинается с заходом, ещё в Шабат
     if (diff === 0) return "Сегодня вечером" + ps;
     if (diff === 1) return "Завтра вечером" + ps;
     return cap(`${WEEKDAY_ACC[dow(civil)]} вечером`) + ps;
   }
   if (diff === 1) return "Завтра";
-  if (diff === 2) return "Послезавтра";
   return cap(WEEKDAY_ACC[dow(civil)]) + (part ? " " + part : "");
 }
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -199,20 +214,72 @@ function eventsFor(today) {
   return ev;
 }
 
+// ---------- времена Хануки и постов: те же функции, что на странице (index.html) ----------
+// Время до ближайшей минуты, как на странице (рассвет и выход звёзд там уже округлены вниз и вверх, как на chabad.org)
+function hm(d, tz) { return hhmm(new Date(Math.round(Math.floor(d / 1000) / 60) * 60000), tz); }
+function spanOf(key, f) {                              // праздник из index.html, который начинается в еврейский день f
+  for (const y of [C.hebrewFromFixed(f).y, C.hebrewFromFixed(f).y + 1]) {
+    const s = C.holidaySpans(y).find(x => x.key === key && x.f0 === f);
+    if (s) return s;
+  }
+  throw new Error(`нет праздника ${key} в день ${f}`);
+}
+// Строки поста по пяти городам
+function fastLines(key, f) {
+  const s = spanOf(key, f), rows = SHABBAT_CITIES.map(c => ({ c, t: C.spanTimes(s, c) }));
+  if (key === "yk") return ["Свечи 🕯️ и время поста, до выхода звёзд ✨ на следующий вечер:",
+    ...rows.map(({ c, t }) => `${c.ru}: 🕯️ ${hm(t.start, c.tz)}, пост с ${hm(t.fastStart, c.tz)} до ✨ ${hm(t.end, c.tz)}`)];
+  return ["Время поста:", ...rows.map(({ c, t }) => `${c.ru}: с ${hm(t.fastStart, c.tz)} до ${hm(t.end, c.tz)}`)];
+}
+// Ханука по обычаю Хабада: сразу после захода; в пятницу до свечей Шабата; в субботу вечером после авдалы
+const CHANUKAH_RULE = "В пятницу свечи Хануки зажигаем до свечей Шабата, в субботу вечером после авдалы, в остальные дни сразу после захода солнца.";
+function chanukahLines(today, f, when) {               // f = 25 Кислева, первая свеча вечером гражданского дня f - 1
+  const civil = f - 1, wd = dow(civil), day = civil === today ? "Сегодня" : civil === today + 1 ? "Завтра" : cap(WEEKDAY_ACC[dow(civil)]);
+  let head, time, pre;
+  if (wd === 5) { head = `${day} зажигаем 1 свечу, до свечей Шабата:`; time = c => C.candlesOn(civil, c); pre = "до "; }
+  else if (wd === 6) { head = `${day} вечером зажигаем 1 свечу, после авдалы:`; time = c => C.havdalahOn(civil, c); pre = "после "; }
+  else { head = `${day} вечером зажигаем 1 свечу, сразу после захода солнца:`; time = c => C.sunsetOn(civil, c); pre = ""; }
+  return [`🕎 ${when} начинается Ханука. Хаг Ханука самеах!`, head,
+    ...SHABBAT_CITIES.map(c => `${c.ru}: ${pre}${hm(time(c), c.tz)}`), CHANUKAH_RULE];
+}
+// Пятница в Хануку (2-я свеча и дальше): одна строка в блоке Шабата
+function chanukahFridayLine(today, sat) {
+  const f0 = C.fixedFromHebrew(C.hebrewFromFixed(sat).y, 9, 25), night = sat - f0 + 1;
+  if (night < 2 || night > 8) return null;
+  return `🕎 ${sat - 1 === today ? "Сегодня" : "В пятницу"} ${night}-я свеча, зажечь до свечей Шабата.`;
+}
+// Пурим сразу после поста Эстер: напоминаем, когда пост заканчивается
+function purimAfterFastLines(today, f) {
+  const s = C.holidaySpans(C.hebrewFromFixed(f).y).find(x => x.key === "esther");
+  if (!s || s.f0 !== f - 1) return [];
+  const when = s.f0 === today ? "сегодня" : s.f0 === today + 1 ? "завтра" : WEEKDAY_ACC[dow(s.f0)];
+  return [`Пост Эстер заканчивается ${when} с выходом звёзд:`,
+    ...SHABBAT_CITIES.map(c => `${c.ru}: ${hm(C.spanTimes(s, c).end, c.tz)}`)];
+}
+
 function buildMessage(today) {
   const ev = eventsFor(today);
   if (!ev || ev.length === 0) return null;
-  const lines = ["Доброе утро, семья! ☀️", ""];
+  const lines = ["Доброе утро, семья! ☀️", ""], links = [];
+  let block = false;                                   // после блока с таблицей времени нужна пустая строка
+  const gap = () => { if (lines.length > 2) lines.push(""); };
   for (const e of ev) {
-    const when = relWhen(today, e.f, e.start);
+    const when = relWhen(today, e.f, e.start, !!e.fast);
     if (e.shabbat) {
-      if (lines.length > 2) lines.push("");
-      lines.push(`🕯️ ${when} начинается Шабат.`, e.parsha, "", "Зажигание свечей 🕯️ и исход Шабата ✨:", ...e.rows, "", "Шабат шалом! 🤍");
+      gap();
+      const ch = chanukahFridayLine(today, e.f);
+      lines.push(`🕯️ ${when} начинается Шабат.`, ...(ch ? [ch] : []), e.parsha, "", "Зажигание свечей 🕯️ и исход Шабата ✨:", ...e.rows, "", "Шабат шалом! 🤍");
+      if (e.link) links.push(`Недельная глава на русском: ${e.link}`);
+      block = true;
       continue;
     }
+    if (e.chanukah) { gap(); lines.push(...chanukahLines(today, e.f, when)); block = true; continue; }
+    if (block) { lines.push(""); block = false; }
     lines.push(e.start === "dawn" ? `${when} ${e.text}` : `${when} начинается ${e.text}`);
+    const extra = e.fast ? fastLines(e.fast, e.f) : e.purim ? purimAfterFastLines(today, e.f) : [];
+    if (extra.length) { lines.push(...extra); block = true; }
   }
-  lines.push("", `Теилим для семьи: ${SITE_URL}`);
+  lines.push("", `Теилим для семьи: ${SITE_URL}`, ...links);
   return { text: lines.join("\n"), events: ev };
 }
 
