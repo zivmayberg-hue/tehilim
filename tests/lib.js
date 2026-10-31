@@ -19,7 +19,7 @@ function loadPage() {
   return new Function(js + `
     return {PEOPLE, hebrewFromFixed, fixedFromHebrew, fixedFromYMD, birthdayInYear, roshChodesh, hLeap, compute, CITIES, ISRAEL_ZONES,
             holidaySpans, spanTimes, bannersAt, shabbatAt, parshaFor, PARSHA_TABLE, PARSHA_NAMES,
-            upcomingBirthdays, upcomingText,
+            upcomingBirthdays, upcomingText, T, LANGS, CITY_NAMES, GROUP_NAMES, HOLIDAY_NAMES, cityName, personName, hebDate, gem,
             sunsetOn, candlesOn, havdalahOn, fastEndOn, dawnOn, weekday,
             place(tz){ const [lat, lon, name] = CITIES[tz]; return {lat, lon, name, israel: ISRAEL_ZONES.has(tz), candleMins: CANDLE_MINS[tz] || 18}; },
             setToday(f){ hebToday = () => ({fixed: f, evening: false}); }};`)();
@@ -54,6 +54,12 @@ function isShabbatOrYomTov(f) {
   return (H.HebrewCalendar.getHolidaysOnDate(dateFromFixed(f), false) || []).some(e => e.getFlags() & H.flags.CHAG);
 }
 
+// A stand-in for GitHub Pages in the browser tests: sw.js as JavaScript, every other address gets the page
+const SW_JS = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
+const fulfillSite = (route, html) => route.request().url().split("?")[0].endsWith("/sw.js")
+  ? route.fulfill({ status: 200, contentType: "application/javascript", body: SW_JS })
+  : route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: html });
+
 // Tiny reporter: each test file prints one RESULT line that run-all.js collects.
 function reporter(name) {
   let checks = 0; const fails = [];
@@ -69,4 +75,4 @@ function reporter(name) {
 }
 
 module.exports = { H, ROOT, loadPage, notify, fixedFromDate, dateFromFixed, iso, hd, todayDubai, endOfYear,
-  birthFixed, hebcalBirthday, isShabbatOrYomTov, reporter };
+  birthFixed, hebcalBirthday, isShabbatOrYomTov, reporter, fulfillSite };

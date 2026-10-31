@@ -7,7 +7,7 @@
 "use strict";
 const path = require("path");
 const { chromium } = require("playwright");
-const { H, loadPage, fixedFromDate, birthFixed, hebcalBirthday, hd, reporter } = require("./lib");
+const { H, loadPage, fixedFromDate, birthFixed, hebcalBirthday, hd, reporter, fulfillSite } = require("./lib");
 
 const R = reporter("Page in headless Chromium (iPhone/iPad, light/dark, 3 cities)");
 const URL = "file://" + path.join(__dirname, "..", "index.html");
@@ -217,7 +217,7 @@ const todayText = page => page.textContent("#today");
   {
     const ctx = await newContext(browser, "iPhone", "light", "Asia/Dubai");
     const html = require("fs").readFileSync(path.join(__dirname, "..", "index.html"));
-    await ctx.route(/^https:\/\/zivmayberg-hue\.github\.io\//, route => route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: html }));
+    await ctx.route(/^https:\/\/zivmayberg-hue\.github\.io\//, route => fulfillSite(route, html));
     const q = "?date=2026-12-04&time=19:00&tz=Asia/Jerusalem";
     for (const [site, honoured] of [["tehilim", false], ["tehilim-preview", true]]) {
       const errors = [], page = await open(ctx, instant("Asia/Dubai", 2026, 10, 27, 12), errors);

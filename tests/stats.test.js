@@ -1,13 +1,13 @@
 // Umami statistics in headless Chromium, with a stand-in for cloud.umami.is (nothing is sent anywhere):
 // the script loads, with auto-tracking off, only on the live address without ?date/?time/?tz; one page view per
 // open; "read" for each tick (not for undo), "psalm" with the chapter, "all" for the all-psalms view, each with the
-// time zone; never on the preview or with ?date; ?stats=off / ?stats=on per device; the page works the same when
+// time zone; "lang" with the language when it is chosen (switch or ?lang=); never on the preview or with ?date; ?stats=off / ?stats=on per device; the page works the same when
 // Umami is blocked or slow.
 "use strict";
 const path = require("path");
 const fs = require("fs");
 const { chromium } = require("playwright");
-const { reporter } = require("./lib");
+const { reporter, fulfillSite } = require("./lib");
 
 const R = reporter("Statistics (Umami) on the live address only");
 const HTML = fs.readFileSync(path.join(__dirname, "..", "index.html"));
@@ -30,7 +30,7 @@ async function newContext(browser, umami = "ok") {
       return route.fulfill({ status: 200, contentType: "application/javascript", body: FAKE_UMAMI });
     }
     if (u.startsWith("https://fonts.googleapis.com/")) return route.fulfill({ status: 200, contentType: "text/css", body: "" });
-    if (u.startsWith("https://zivmayberg-hue.github.io/")) return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: HTML });
+    if (u.startsWith("https://zivmayberg-hue.github.io/")) return fulfillSite(route, HTML);
     return route.abort();
   });
   return ctx;
@@ -65,6 +65,18 @@ const settle = page => page.waitForTimeout(300);
     const want = [[], ["read", { tz: "Asia/Dubai" }], ["psalm", { tz: "Asia/Dubai", chapter: ch }], ["all", { tz: "Asia/Dubai" }], ["read", { tz: "Asia/Dubai" }]];
     R.check(JSON.stringify(await events(page)) === JSON.stringify(want), `live events ${JSON.stringify(await events(page))}, expected ${JSON.stringify(want)}`);
     R.check(errors.length === 0, `live: ${errors.join("; ")}`);
+    await ctx.close();
+  }
+
+  // The chosen language: once from ?lang=, once per switch click (not for the language already shown)
+  {
+    const ctx = await newContext(browser), errors = [], page = await open(ctx, LIVE + "?lang=he", errors);
+    await page.waitForFunction(() => window.__umami && window.__umami.length >= 2);
+    await page.click('#langs button[data-lang="he"]'); await settle(page);
+    await page.click('#langs button[data-lang="en"]'); await settle(page);
+    const want = [[], ["lang", { tz: "Asia/Dubai", lang: "he" }], ["lang", { tz: "Asia/Dubai", lang: "en" }]];
+    R.check(JSON.stringify(await events(page)) === JSON.stringify(want), `lang events ${JSON.stringify(await events(page))}`);
+    R.check(errors.length === 0, `lang: ${errors.join("; ")}`);
     await ctx.close();
   }
 
@@ -119,5 +131,5 @@ const settle = page => page.waitForTimeout(300);
   }
 
   await browser.close();
-  R.done("live, preview, ?date/time/tz, file, ?stats=off/on, blocked, slow");
+  R.done("live, language, preview, ?date/time/tz, file, ?stats=off/on, blocked, slow");
 })().catch(e => { console.error(e); process.exit(1); });   // exit even if a browser is still open
