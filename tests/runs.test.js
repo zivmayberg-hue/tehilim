@@ -39,7 +39,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
   for (let f = start; f <= end; f++) {
     if (!N.buildMessage(f)) continue;
     const g = dateFromFixed(f);
-    const sunset = new H.Zmanim(new H.GeoLocation(null, 25.2048, 55.2708, 0, "Asia/Dubai"), g, false).sunset().getTime();
+    const sunset = new H.Zmanim(new H.GeoLocation(null, 25.2167, 55.2833, 0, "Asia/Dubai"), g, false).sunset().getTime();
     const cutoff = N.lateCutoff(f).getTime();
     R.check(cutoff === sunset - 2 * 3600000, `${iso(f)}: cutoff ${new Date(cutoff).toISOString()}, sunset ${new Date(sunset).toISOString()}`);
     for (const [delta, expectLate] of [[-60000, false], [0, true], [60000, true]]) {

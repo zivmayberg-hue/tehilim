@@ -44,8 +44,15 @@ for (let f = start; f <= end; f++) {
       `${iso(f)}: Hanukkah "${b.lines[0]}", Hebcal ${candles.get(f)} candles`);
     if (b.key === "chanukah") R.check(b.psalm === 30, `${iso(f)}: Hanukkah without Psalm 30`);
     if (b.key === "purim") R.check(b.psalm === 22, `${iso(f)}: Purim without Psalm 22`);
-    if (["gedalia", "tevet10", "esther", "tammuz17", "av9"].includes(b.key))
+    if (["gedalia", "tevet10", "esther", "tammuz17"].includes(b.key))
       R.check(b.tiles.map(t => t.label).join() === "Начало поста,Конец поста" && b.tiles[0].time < b.tiles[1].time, `${iso(f)} ${b.key}: fast times ${JSON.stringify(b.tiles)}`);
+    if (b.key === "av9") {                           // through the night: the tiles name the days
+      const [s0, s1] = spans.has(`av9@${f}`) ? ["вчера", "сегодня"] : ["сегодня", "завтра"];   // fast day itself, or the day before
+      R.check(b.tiles.map(t => t.label).join() === `Начало поста, ${s0} вечером,Конец поста, ${s1} вечером` && b.tiles[0].time < b.tiles[1].time,
+        `${iso(f)} av9: tiles ${b.tiles.map(t => t.label)}`);
+    }
+    if (b.key === "yk") R.check(b.tiles.map(t => t.label).join() === (b.lines[0] === "Начинается сегодня вечером." ? "Свечи и начало поста, сегодня,Конец поста, завтра вечером" : "Конец поста, сегодня вечером"),
+      `${iso(f)} yk: tiles ${b.tiles.map(t => t.label)}`);
   }
   const sh = P.shabbatAt(f, at10(f), DUBAI), wd = dateFromFixed(f).getDay();
   R.check(!!sh === (wd === 5 || wd === 6), `${iso(f)}: Shabbat card ${!!sh} on weekday ${wd}`);

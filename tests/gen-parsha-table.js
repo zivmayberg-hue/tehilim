@@ -9,7 +9,7 @@ const H = require("@hebcal/core");
 
 const FIRST = [2026, 0, 3], LAST_YEAR = 2036;          // the first Saturday of 2026
 const RU = {
-  "Bereshit":"Берешит","Noach":"Ноах","Lech-Lecha":"Лех Леха","Vayera":"Вайера","Chayei Sara":"Хаей Сара","Toldot":"Толдот",
+  "Bereshit":"Берешит","Noach":"Ноах","Lech-Lecha":"Лех Леха","Vayera":"Вайера","Chayei Sara":"Хайей-Сара","Toldot":"Толдот",
   "Vayetzei":"Вайеце","Vayishlach":"Вайишлах","Vayeshev":"Вайешев","Miketz":"Микец","Vayigash":"Ваигаш","Vayechi":"Вайехи",
   "Shemot":"Шмот","Vaera":"Ваэра","Bo":"Бо","Beshalach":"Бешалах","Yitro":"Итро","Mishpatim":"Мишпатим","Terumah":"Трума",
   "Tetzaveh":"Тецаве","Ki Tisa":"Ки Тиса","Vayakhel":"Ваякгель","Pekudei":"Пкудей","Vayikra":"Ваикра","Tzav":"Цав",
