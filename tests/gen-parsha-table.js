@@ -1,7 +1,7 @@
 // Generates the weekly-portion table embedded in index.html (between the PARSHA_TABLE markers),
 // from @hebcal/core 5.8.0, for every Saturday from FIRST to the end of LAST_YEAR, diaspora and Israel.
 // Usage: NODE_PATH=tests/node_modules node tests/gen-parsha-table.js
-// Russian names are the same as in notify/notify.js.
+// Russian names are the same as in notify/notify.js; English names are Hebcal's.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -22,7 +22,7 @@ const RU = {
 const CANTILLATION = /[֑-֯]/g;
 
 function build() {
-  const names = H.parshiot.map(p => [RU[p], H.Locale.gettext(p, "he").replace(CANTILLATION, "")]);
+  const names = H.parshiot.map(p => [RU[p], H.Locale.gettext(p, "he").replace(CANTILLATION, ""), p]);   // русское, иврит, английское (Hebcal)
   if (names.some(([ru]) => !ru)) throw new Error("missing Russian name");
   const token = l => l.chag ? "" : l.parsha.map(p => H.parshiot.indexOf(p)).join("+");
   const dia = [], il = [];

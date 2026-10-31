@@ -6,7 +6,7 @@
 const path = require("path");
 const fs = require("fs");
 const { chromium } = require("playwright");
-const { H, loadPage, reporter } = require("./lib");
+const { H, loadPage, reporter, fulfillSite } = require("./lib");
 
 const R = reporter("Ticks, all-psalms view and upcoming birthdays in Chromium");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -33,7 +33,7 @@ async function newContext(browser, { device = "iPhone", scheme = "light", tz = "
     if (u.startsWith("file:")) return route.continue();
     if (u.startsWith("https://fonts.googleapis.com/")) return route.fulfill({ status: 200, contentType: "text/css", body: "" });
     if (u.startsWith("https://cloud.umami.is/")) return route.fulfill({ status: 200, contentType: "application/javascript", body: "" });   // statistics: see stats.test.js
-    if (u.startsWith("https://zivmayberg-hue.github.io/")) return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: HTML });
+    if (u.startsWith("https://zivmayberg-hue.github.io/")) return fulfillSite(route, HTML);
     return route.abort();
   });
   return ctx;
