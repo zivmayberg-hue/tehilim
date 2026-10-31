@@ -233,15 +233,15 @@ function fastLines(key, f, today) {
 }
 // Ханука по обычаю Хабада: сразу после захода; в пятницу до свечей Шабата; в субботу вечером после авдалы
 const CHANUKAH_RULE = "В пятницу свечи Хануки зажигаем до свечей Шабата, в субботу вечером после авдалы, в остальные дни сразу после захода солнца.";
-const CHANUKAH_FRIDAY = "Свечи Хануки в пятницу должны гореть до получаса после выхода звёзд, около полутора часов, поэтому берите свечи побольше.";
+const CHANUKAH_FRIDAY = "Свечи в пятницу должны гореть до получаса после выхода звёзд (около полутора часов), поэтому берите свечи побольше.";
+// Первая свеча в пятницу или в субботу вечером: время то же, что в блоке Шабата ниже, поэтому без списка городов
 function chanukahLines(today, f, when) {               // f = 25 Кислева, первая свеча вечером гражданского дня f - 1
   const civil = f - 1, wd = dow(civil), day = civil === today ? "Сегодня" : civil === today + 1 ? "Завтра" : cap(WEEKDAY_ACC[dow(civil)]);
-  let head, time, pre;
-  if (wd === 5) { head = `${day} зажигаем 1 свечу, до свечей Шабата:`; time = c => C.candlesOn(civil, c); pre = "до "; }
-  else if (wd === 6) { head = `${day} вечером зажигаем 1 свечу, после авдалы:`; time = c => C.havdalahOn(civil, c); pre = "после "; }
-  else { head = `${day} вечером зажигаем 1 свечу, сразу после захода солнца:`; time = c => C.sunsetOn(civil, c); pre = ""; }
-  return [`🕎 ${when} начинается Ханука. Хаг Ханука самеах!`, head,
-    ...SHABBAT_CITIES.map(c => `${c.ru}: ${pre}${hm(time(c), c.tz)}`), ...(wd === 5 ? [CHANUKAH_FRIDAY] : []), CHANUKAH_RULE];
+  const first = `🕎 ${when} начинается Ханука. Хаг Ханука самеах!`;
+  if (wd === 5) return [first, `${day} зажигаем 1 свечу, до свечей Шабата (время ниже).`, CHANUKAH_RULE, CHANUKAH_FRIDAY];
+  if (wd === 6) return [first, `${day} вечером зажигаем 1 свечу, после авдалы (время исхода Шабата ниже).`, CHANUKAH_RULE];
+  return [first, `${day} вечером зажигаем 1 свечу, после захода солнца:`,
+    ...SHABBAT_CITIES.map(c => `${c.ru}: ${hm(C.sunsetOn(civil, c), c.tz)}`), CHANUKAH_RULE];
 }
 // Пятница в Хануку (2-я свеча и дальше): одна строка в блоке Шабата
 function chanukahFridayLine(today, sat) {

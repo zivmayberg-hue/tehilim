@@ -22,7 +22,7 @@ const floorMin = d => new Date(Math.floor(d / 60000) * 60000), ceilMin = d => ne
 const candles = (c, f) => new Date(Math.round(Math.floor(zm(c, f).sunset() / 1000) / 60) * 60000 - c[4] * 60000);   // chabad.org's rule
 const WEEKDAY = ["в воскресенье", "в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу"];
 const dayName = (d, today) => { const w = dateFromFixed(d).getDay(); return d === today ? "сегодня" : d === today + 1 && w !== 6 && w !== 0 ? "завтра" : WEEKDAY[w]; };
-const FRIDAY_LINE = "Свечи Хануки в пятницу должны гореть до получаса после выхода звёзд, около полутора часов, поэтому берите свечи побольше.";
+const FRIDAY_LINE = "Свечи в пятницу должны гореть до получаса после выхода звёзд (около полутора часов), поэтому берите свечи побольше.";
 // Dawn at 16.9°; where the sun never gets that low (Kyiv and Chernivtsi around midsummer) chabad.org uses midnight
 const dawnAt = (c, f) => { const t = zm(c, f).timeAtAngle(16.9, true); return t && !isNaN(t) ? t : zm(c, f).chatzotNight(); };   // Hebcal: the midnight before day f
 const lastPostDay = d => { while (N.isNoPostDay(d)) d--; return d; };
@@ -42,14 +42,16 @@ for (let hy = C.hebrewFromFixed(start).y; hy <= C.hebrewFromFixed(end).y; hy++) 
   const L = lines(day), i = L.findIndex(l => l.startsWith("🕎") && l.includes("начинается Ханука"));
   R.check(i >= 0, `${iso(day)}: no Hanukkah block for the first night ${iso(first)}`);
   if (i < 0) continue;
-  const wd = dateFromFixed(first).getDay();
-  const [pre, time] = wd === 5 ? ["до ", c => candles(c, first)] : wd === 6 ? ["после ", c => zm(c, first).tzeit(8.5)] : ["", c => zm(c, first).sunset()];
-  R.check(L[i + 1].includes("зажигаем 1 свечу") && L[i + 1].includes(wd === 5 ? "до свечей Шабата" : wd === 6 ? "после авдалы" : "сразу после захода солнца"),
-    `${iso(day)}: Hanukkah head "${L[i + 1]}"`);
-  CITIES.forEach((c, k) => R.check(L[i + 2 + k] === `${c[0]}: ${pre}${hm(time(c), c[3])}`, `${iso(day)}: "${L[i + 2 + k]}", Hebcal ${pre}${hm(time(c), c[3])}`));
-  const k = wd === 5 ? 8 : 7;
-  R.check(wd !== 5 || L[i + 7] === FRIDAY_LINE, `${iso(day)}: no bigger-candles line on Friday`);
-  R.check(L[i + k].startsWith("В пятницу свечи Хануки зажигаем до свечей Шабата, в субботу вечером после авдалы"), `${iso(day)}: no Hanukkah custom line`);
+  const wd = dateFromFixed(first).getDay(), RULE = "В пятницу свечи Хануки зажигаем до свечей Шабата, в субботу вечером после авдалы, в остальные дни сразу после захода солнца.";
+  if (wd === 5 || wd === 6) {                         // the time is in the Shabbat block of the same message
+    R.check(L[i + 1] === (wd === 5 ? "Сегодня зажигаем 1 свечу, до свечей Шабата (время ниже)." : `${day === first ? "Сегодня" : "Завтра"} вечером зажигаем 1 свечу, после авдалы (время исхода Шабата ниже).`)
+      && L[i + 2] === RULE && (wd === 6 || L[i + 3] === FRIDAY_LINE), `${iso(day)}: Hanukkah block ${JSON.stringify(L.slice(i, i + 4))}`);
+    R.check(L.some(l => l.startsWith("🕯️") && l.includes("начинается Шабат")), `${iso(day)}: first night on Shabbat without the Shabbat block`);
+  } else {
+    R.check(L[i + 1].endsWith("зажигаем 1 свечу, после захода солнца:"), `${iso(day)}: Hanukkah head "${L[i + 1]}"`);
+    CITIES.forEach((c, k) => R.check(L[i + 2 + k] === `${c[0]}: ${hm(zm(c, first).sunset(), c[3])}`, `${iso(day)}: "${L[i + 2 + k]}"`));
+    R.check(L[i + 7] === RULE, `${iso(day)}: no Hanukkah custom line`);
+  }
   for (let n = 2; n <= 8; n++) if (dateFromFixed(first + n - 1).getDay() === 5) {
     const fri = first + n - 1, want = `🕎 Сегодня ${n}-я свеча, зажечь до свечей Шабата.`;
     const j = lines(fri).indexOf(want);
