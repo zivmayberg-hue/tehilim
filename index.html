@@ -202,18 +202,18 @@ h2{font-family:var(--ui);font-size:calc(15px * var(--scale));font-weight:600;col
    afterSunset: true, если родился после захода солнца (тогда еврейская дата на день позже)
    en, he: имя по-английски и на иврите для английской и ивритской версии страницы */
 const PEOPLE = [
-  {group:"Арон и Наталья", name:"Арон",      born:"1956-07-13", afterSunset:false, en:"Aron", he:"אהרן"},
+  {group:"Арон и Наталья", name:"Арон",      born:"1956-07-13", afterSunset:false, en:"Aron", he:"אהרון"},
   {group:"Арон и Наталья", name:"Наталья",   born:"1956-07-25", afterSunset:false, en:"Natalia", he:"נטליה"},
   {group:"Дети",           name:"Полина",    born:"1986-02-27", afterSunset:false, en:"Polina", he:"פולינה"},
   {group:"Дети",           name:"Дафна",     born:"1991-12-07", afterSunset:false, en:"Dafna", he:"דפנה"},
   {group:"Дети",           name:"Зив",       born:"1994-10-16", afterSunset:false, en:"Ziv", he:"זיו"},
   {group:"Зять и невестка", name:"Моше",     born:"1988-08-01", afterSunset:false, en:"Moshe", he:"משה"},
   {group:"Зять и невестка", name:"Яна",      born:"1994-07-25", afterSunset:false, en:"Yana", he:"יאנה"},
-  {group:"Внуки",          name:"Исраэль Авия", born:"2018-04-01", afterSunset:false, en:"Israel Aviya", he:"ישראל אביה"},
+  {group:"Внуки",          name:"Исраэль Авия", born:"2018-04-01", afterSunset:false, en:"Israel Aviah", he:"ישראל אביה"},
   {group:"Внуки",          name:"Эмилия Зельда",    born:"2021-01-11", afterSunset:false, en:"Emilia Zelda", he:"אמיליה זלדה"},
   {group:"Внуки",          name:"Даниэль-Санни",   born:"2021-04-29", afterSunset:false, en:"Daniel-Sunny", he:"דניאל-סאני"},
-  {group:"Внуки",          name:"Адель Шейна",     born:"2022-10-24", afterSunset:false, en:"Adel Sheina", he:"אדל שיינה"},
-  {group:"Внуки",          name:"Лоэв Зелиг Приэль", born:"2024-11-19", afterSunset:false, en:"Loev Zelig Priel", he:"לואב זליג פריאל"},
+  {group:"Внуки",          name:"Адель Шейна",     born:"2022-10-24", afterSunset:false, en:"Adele Sheina", he:"אדל שיינה"},
+  {group:"Внуки",          name:"Лоэв Зелиг Приэль", born:"2024-11-19", afterSunset:false, en:"Loew Zelig Priel", he:"לואב זליג פריאל"},
 ];
 const IS_EXAMPLE = false;
 
@@ -356,7 +356,7 @@ const CITY_NAMES = {
 const cityName = (L, ru) => L === "ru" ? ru : (CITY_NAMES[ru] || [ru, ru])[L === "en" ? 0 : 1];
 // Имена и группы семьи (английское и ивритское написание из PEOPLE)
 const personName = (L, ru) => { const p = PEOPLE.find(x => x.name === ru); return L === "ru" || !p ? ru : p[L] || ru; };
-const GROUP_NAMES = {"Арон и Наталья":["Aron and Natalia","אהרן ונטליה"], "Дети":["Children","ילדים"],
+const GROUP_NAMES = {"Арон и Наталья":["Aron and Natalia","אהרון ונטליה"], "Дети":["Children","ילדים"],
   "Зять и невестка":["Son-in-law and daughter-in-law","חתן וכלה"], "Внуки":["Grandchildren","נכדים"]};
 const groupName = (L, ru) => L === "ru" ? ru : (GROUP_NAMES[ru] || [ru, ru])[L === "en" ? 0 : 1];
 // «сегодня вечером» и т. п. для дня f относительно today (rel = 0 сегодня, 1 завтра, -1 вчера)
