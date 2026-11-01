@@ -5,7 +5,7 @@
 // no Russian left in English and Hebrew, no sideways scrolling, the switch in the top right corner with 44 px
 // buttons, Hebrew right to left (names on the right, back button on the right) with times kept left to right;
 // the site opens in Russian whatever the phone's language, ?lang= and the switch choose and remember the language;
-// the "Next" button walks through the family, the last one goes back to the list; the screen stays awake only
+// the "Next" button walks through the family and the two daily readings, the last one goes back to the list; the screen stays awake only
 // while a psalm is open.
 "use strict";
 const path = require("path");
@@ -116,6 +116,14 @@ const box = (page, sel) => page.$eval(sel, e => { const r = e.getBoundingClientR
         R.check(JSON.stringify(await page.evaluate(() => window.__wake)) === JSON.stringify(["request:screen", "release"]), `${tag}: wake lock not released`);
         const last = await page.$$("#out .card .open");
         await last[last.length - 1].click(); await page.waitForSelector("#rinner .nextbtn");
+        // after the family: the reading by day of the month, then by day of the week, then back to the list
+        const NEXT = { ru: ["По дню месяца", "По дню недели"], en: ["Monthly cycle", "Weekly cycle"], he: ["לפי יום בחודש", "לפי יום בשבוע"] }[lang];
+        for (const want of NEXT) {
+          const nt = await page.textContent("#rinner .nextbtn");
+          R.check(nt.includes(want), `${tag}: Next "${nt}", expected ${want}`);
+          await page.click("#rinner .nextbtn"); await page.waitForFunction(w => document.getElementById("rtitle").textContent.startsWith(w), want);
+          await page.waitForSelector("#rinner .nextbtn");
+        }
         R.check(await page.textContent("#rinner .nextbtn") === ({ ru: "Назад к списку", en: "Back to the list", he: "חזרה לרשימה" })[lang], `${tag}: last Next "${await page.textContent("#rinner .nextbtn")}"`);
         await page.click("#rinner .nextbtn");
         R.check(await page.isHidden("#reader"), `${tag}: "Back to the list" did not close the reader`);
