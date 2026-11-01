@@ -4,8 +4,9 @@ on:
   # GitHub often starts scheduled runs hours late, so there are five runs each morning at off-peak minutes,
   # 06:13 to 08:43 UTC = 10:13 to 12:43 Dubai (no daylight saving in Dubai), 08:13 to 10:43 in Herzliya,
   # Bucharest and Kyiv in winter, so nobody in Europe or Israel is woken early. The first run that actually starts
-  # sends; the others find today's line in notify/sent.log and stop. A run that starts later than 2 hours
-  # before sunset in Dubai sends to Telegram only (see notify.js).
+  # sends; the others find today's line in notify/sent.log and stop. A late run still posts to the group until
+  # the first event in the message starts or Shabbat or Yom Tov begins in any of the five cities; after that it sends
+  # to the admin's Telegram only (see notify.js).
   schedule:
     - cron: "13 6 * * *"
     - cron: "43 6 * * *"

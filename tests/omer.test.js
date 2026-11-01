@@ -5,7 +5,8 @@
 // - the page: the card switches at sunset in Dubai, Herzliya and Bucharest, night until dawn, "forgot" by day;
 // - the messages: every night counted exactly once, in its own evening message or in the last morning message
 //   before it; nothing posted while it is Shabbat or Yom Tov (Hebcal, diaspora); Fridays carry Friday and Saturday
-//   night, Erev Pesach announces the count; the evening runs (13:00 to 14:20 UTC) send once, after Dubai sunset only
+//   night, Erev Pesach announces the count; the evening runs (at Dubai nightfall, 30 minutes later, GitHub's 19:43 and
+//   20:13, the 20:40 restart) send once, nothing before nightfall, after midnight Dubai only
 //   to the admin; the evening workflow file;
 // - in Chromium: the card in Russian, English and Hebrew, iPhone and iPad, light and dark, normal and "Крупнее".
 "use strict";
@@ -72,9 +73,8 @@ for (const s of seasons) {
     if (m) { morning.set(d, m); R.check(!isShabbatOrYomTov(d), `${iso(d)}: morning message on Shabbat or Yom Tov`); }
     if (e) {
       evening.set(d, e);
-      // posted around 17:00 Dubai, at the latest at Dubai sunset: neither today nor tonight is Shabbat or Yom Tov anywhere
+      // posted from Dubai nightfall until midnight Dubai: neither today nor tonight is Shabbat or Yom Tov anywhere
       R.check(!isShabbatOrYomTov(d) && !isShabbatOrYomTov(d + 1), `${iso(d)}: evening message on or before Shabbat/Yom Tov`);
-      R.check(N.eveningCutoff(d).getTime() > dateFromFixed(d).getTime() + 13 * 3600000, `${iso(d)}: Dubai sunset before 17:00`);
     }
     for (const t of [m && m.text, e && e.text]) if (t) { msgs++; R.check(!t.includes("—") && !t.includes("undefined") && !t.includes("NaN"), `${iso(d)}: bad text`); }
   }
@@ -120,24 +120,31 @@ R.check(C.omerRu(7) === "7-й день, это неделя" && C.omerRu(8) === 
 
 // ---------- 4. evening runs ----------
 (async () => {
-  const RUNS = [[13, 0], [13, 13], [13, 30], [13, 43], [14, 20]];
+  const nightfallUTC = d => { const z = new H.Zmanim(new H.GeoLocation(null, 25.2167, 55.2833, 0, "Asia/Dubai"), dateFromFixed(d), false);
+    return Math.ceil(Math.floor(z.timeAtAngle(6, false).getTime() / 1000) / 60) * 60000; };   // Dubai nightfall, as chabad.org
+  let early = 0;
   let runDays = 0, lateChecks = 0;
   for (const s of seasons) for (let d = s.f1 - 3; d <= s.f49 + 1; d++) {
     const log = path.join(dir, `e-${d}`), group = [], tg = [];
     fs.writeFileSync(log, `${iso(d)} утро\n`);             // the morning's line must not stop the evening
-    const at = (h, m) => dateFromFixed(d).getTime() + (h * 60 + m) * 60000;
+    const at = (h, m) => dateFromFixed(d).getTime() + (h * 60 + m) * 60000, nf = nightfallUTC(d);
+    // too early (an hour before nightfall): nothing, not logged; then the trigger's start just after nightfall, its
+    // backup 30 minutes later, GitHub's 15:43 and 16:13 UTC, the 16:40 check's restart at 16:45
+    const pre = await quiet(() => N.run({ today: d, now: nf - 3600000, slot: "evening", log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
+    if (N.eveningMessage(d)) { R.check(pre === "early" && !group.length, `${iso(d)}: before nightfall ${pre}`); early++; }
     const res = [];
-    for (const [h, m] of RUNS) res.push(await quiet(() => N.run({ today: d, now: at(h, m), slot: "evening", log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) })));
+    for (const now of [nf + 3 * 60000, nf + 33 * 60000, at(15, 43), at(16, 13), at(16, 45)]) res.push(await quiet(() => N.run({ today: d, now, slot: "evening", log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) })));
     const e = N.eveningMessage(d);
     if (e) R.check(res.join() === "sent,already,already,already,already" && group.length === 1 && group[0] === e.text && !tg.length &&
       fs.readFileSync(log, "utf8").includes(`${iso(d)} вечер Омер ${e.omer}\n`), `${iso(d)} evening runs: ${res}`);
     else R.check(res.every(r => r === "none") && !group.length && !tg.length, `${iso(d)}: evening sent without a message ${res}`);
     const morningAgain = await quiet(() => N.run({ today: d, now: at(8, 43), log, sendGroup: async () => {}, sendLate: async () => {} }));
-    R.check(morningAgain === "already" || morningAgain === "none", `${iso(d)}: morning after evening ${morningAgain}`);
+    R.check(morningAgain === "already" || morningAgain === "none" || (morningAgain === "sent" && N.feedbackFor(d) && !N.buildMessage(d)), `${iso(d)}: morning after evening ${morningAgain}`);
     runDays++;
     if (e) {
-      const cut = N.eveningCutoff(d).getTime(), sunset = new H.Zmanim(new H.GeoLocation(null, 25.2167, 55.2833, 0, "Asia/Dubai"), dateFromFixed(d), false).sunset().getTime();
-      R.check(cut === sunset, `${iso(d)}: evening cutoff is not Dubai sunset`);
+      const cut = N.eveningCutoff(d).getTime();
+      R.check(cut === Date.parse(iso(d + 1) + "T00:00:00+04:00") && nf < cut - 4 * 3600000, `${iso(d)}: evening cutoff is not midnight Dubai`);
+      R.check(N.eveningStart(d).getTime() === nf - 10 * 60000, `${iso(d)}: evening start is not 10 minutes before Dubai nightfall`);
       for (const [delta, late] of [[-60000, false], [0, true]]) {
         const l2 = path.join(dir, `l-${d}-${delta}`), g = [], t = [];
         const r = await quiet(() => N.run({ today: d, now: cut + delta, slot: "evening", log: l2, sendGroup: async x => g.push(x), sendLate: async x => t.push(x) }));
@@ -157,12 +164,12 @@ R.check(C.omerRu(7) === "7-й день, это неделя" && C.omerRu(8) === 
   }
   // late evening alert text, in English
   const A = require(path.join(__dirname, "..", "notify", "alerts.js"));
-  R.check(/^⚠️ Tehilim: tonight's Omer reminder is late \(the run started after sunset in Dubai, 18:52\)/.test(A.TEXT.lateEvening("18:52")) && !/[а-яё—]/i.test(A.TEXT.lateEvening("18:52")), "late evening alert");
+  R.check(A.TEXT.lateEvening().startsWith("⚠️ Tehilim: tonight's Omer reminder ran after midnight Dubai time, so it didn't go to the group.") && !/[а-яё—]/i.test(A.TEXT.lateEvening()), "late evening alert");
 
   // ---------- 5. workflow ----------
   const yml = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "evening.yml"), "utf8");
   const crons = [...yml.matchAll(/cron:\s*"([^"]+)"/g)].map(m => m[1]);
-  R.check(JSON.stringify(crons) === JSON.stringify(["13 13 * 3-6 *", "43 13 * 3-6 *"]), `evening crons ${crons}`);
+  R.check(JSON.stringify(crons) === JSON.stringify(["43 15 * 3-6 *", "13 16 * 3-6 *"]), `evening crons ${crons}`);
   R.check(/concurrency:\s*\n\s*group: whatsapp-reminder\s*\n\s*cancel-in-progress: false/.test(yml), "evening runs share the morning's concurrency group");
   R.check(/run: node notify\/notify\.js evening\n/.test(yml) && /TZ: Asia\/Dubai/.test(yml) && /ref: \$\{\{ github\.ref \}\}/.test(yml) && /git pull --rebase[^\n]*&& git push/.test(yml), "evening workflow setup");
   R.check(/workflow_dispatch:/.test(yml) && /timeout-minutes: 10/.test(yml), "evening workflow can be started by the Vercel trigger and times out");
@@ -219,5 +226,5 @@ R.check(C.omerRu(7) === "7-й день, это неделя" && C.omerRu(8) === 
   await browser.close();
   fs.rmSync(dir, { recursive: true, force: true });
   R.done(`${seasons.length} seasons, 49 days checked against chabad.org and Hebcal, ${pageChecks} days x 3 cities on the page, ` +
-    `${evenings} evening messages + ${inMorning} counts in morning messages (${fridays} Fridays), ${runDays} evenings x 5 runs, ${lateChecks} cutoff checks, ${views} Chromium views`);
+    `${evenings} evening messages + ${inMorning} counts in morning messages (${fridays} Fridays), ${runDays} evenings x 5 runs (${early} too-early runs held back), ${lateChecks} midnight cutoff checks, ${views} Chromium views`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

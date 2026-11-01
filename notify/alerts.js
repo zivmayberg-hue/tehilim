@@ -28,9 +28,9 @@ const enDate = iso => { const [y, m, d] = iso.split("-").map(Number); return `${
 // ---------- texts ----------
 const TEXT = {
   whatsappFailed: () => "WhatsApp didn't send. Forward the next message to the family group.",
-  late: time => `⚠️ Tehilim: today's reminder is late (the run started after ${time} Dubai, 2 hours before sunset), so it didn't go to the group.\n` +
+  late: (time, what = "the first event in it") => `⚠️ Tehilim: today's reminder ran too late for the group: ${what} began at ${time} Dubai time, so it didn't go there.\n` +
     "If it's still relevant, forward the next message to the family group.",
-  lateEvening: time => `⚠️ Tehilim: tonight's Omer reminder is late (the run started after sunset in Dubai, ${time}), so it didn't go to the group.\n` +
+  lateEvening: () => "⚠️ Tehilim: tonight's Omer reminder ran after midnight Dubai time, so it didn't go to the group.\n" +
     "If it's still relevant, forward the next message to the family group.",
   whatsapp: status => `🟠 Tehilim: the bot's WhatsApp is not connected (Whapi: ${status}).\n` +
     "If sending fails, today's family message comes to you here to forward.\n" +

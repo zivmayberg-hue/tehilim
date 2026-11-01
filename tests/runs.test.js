@@ -1,6 +1,7 @@
 // Morning runs of the reminder (news or, on its morning, the monthly feedback message): five runs a day (06:13 to 08:43 UTC) must send exactly once, on the first run,
-// sharing notify/sent.log like the serialized GitHub runs do; nothing on Shabbat or Yom Tov; a run that starts
-// later than 2 hours before sunset in Dubai goes to Telegram only (an English alert, then the message itself); a failed
+// sharing notify/sent.log like the serialized GitHub runs do; nothing on Shabbat or Yom Tov; a late run still posts
+// until the first event starts or Shabbat or Yom Tov begins in any of the five cities, then goes to Telegram only (an
+// English alert, then the message itself); a failed
 // send is retried by the next run, and a run restarted by the 12:13 Vercel check posts once, the 12:43 run then stops. Also checks the workflow file: the five times, one-at-a-time runs, fresh checkout, safe push.
 "use strict";
 const fs = require("fs");
@@ -34,22 +35,31 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
     days++;
   }
 
-  // 2. The cutoff: 2 hours before Dubai sunset (Hebcal), checked on every day that has a message
-  let lateChecked = 0;
+  // 2. Late runs: still to the group until the first event in the message starts (earliest of the five cities) and
+  //    before Shabbat or Yom Tov begins in any of them (Hebcal: candle lighting, 18 minutes before sunset, Herzliya 30);
+  //    after that to the admin only. A run 2 hours before sunset (the old cutoff) now posts to the group.
+  const CITIES5 = [[25.2167, 55.2833, "Asia/Dubai", 18], [32.1649, 34.8442, "Asia/Jerusalem", 30], [44.4333, 26.1, "Europe/Bucharest", 18],
+    [50.4667, 30.4833, "Europe/Kiev", 18], [48.3, 25.9333, "Europe/Kiev", 18]];
+  const sunsetAt = (f, [lat, lon, tz]) => new H.Zmanim(new H.GeoLocation(null, lat, lon, 0, tz), dateFromFixed(f), false).sunset().getTime();
+  let lateChecked = 0, shabbatCapped = 0;
   for (let f = start; f <= end; f++) {
-    if (!N.morningMessage(f)) continue;
-    const g = dateFromFixed(f);
-    const sunset = new H.Zmanim(new H.GeoLocation(null, 25.2167, 55.2833, 0, "Asia/Dubai"), g, false).sunset().getTime();
-    const cutoff = N.lateCutoff(f).getTime();
-    R.check(cutoff === sunset - 2 * 3600000, `${iso(f)}: cutoff ${new Date(cutoff).toISOString()}, sunset ${new Date(sunset).toISOString()}`);
-    for (const [delta, expectLate] of [[-60000, false], [0, true], [60000, true]]) {
-      const log = path.join(dir, `late-${f}-${delta}`), group = [], tg = [];
-      const r = await quiet(() => N.run({ today: f, now: cutoff + delta, log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
-      const text = N.morningMessage(f).text;
-      R.check(expectLate ? r === "late" && !group.length && tg.length === 1 && tg[0] === text
-                         : r === "sent" && group.length === 1 && !tg.length, `${iso(f)} cutoff ${delta / 60000} min: ${r}, group ${group.length}, telegram ${tg.length}`);
+    const msg = N.buildMessage(f);
+    if (!msg) continue;
+    const cutoff = N.lateCutoff(f, msg).getTime(), dubaiSunset = sunsetAt(f, CITIES5[0]);
+    if (isShabbatOrYomTov(f + 1)) {
+      const first = Math.min(...CITIES5.map(c => Math.round(sunsetAt(f, c) / 60000) * 60000 - c[3] * 60000));
+      R.check(cutoff <= first && cutoff >= first - 60000 && N.lateCutoff(f, msg).what === "Shabbat or Yom Tov", `${iso(f)}: cutoff ${new Date(cutoff).toISOString()}, Shabbat/Yom Tov starts ${new Date(first).toISOString()}`);
+      shabbatCapped++;
+    }
+    if (msg.events.some(e => e.start === "evening")) R.check(cutoff <= dubaiSunset + 60000 && cutoff >= dubaiSunset - 20 * 60000, `${iso(f)}: cutoff ${new Date(cutoff).toISOString()} vs Dubai sunset`);
+    else R.check(cutoff > dubaiSunset, `${iso(f)}: dawn-only message cut off before the evening`);
+    for (const [now, expectLate] of [[dubaiSunset - 2 * 3600000 + 60000, false], [cutoff - 60000, false], [cutoff, true], [cutoff + 60000, true]]) {
+      const log = path.join(dir, `late-${f}-${now}`), group = [], tg = [];
+      const r = await quiet(() => N.run({ today: f, now, log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
+      R.check(expectLate ? r === "late" && !group.length && tg.length === 1 && tg[0] === msg.text
+                         : r === "sent" && group.length === 1 && !tg.length, `${iso(f)} at ${new Date(now).toISOString()}: ${r}, group ${group.length}, telegram ${tg.length}`);
       if (expectLate) {                              // the late Telegram send is logged, so later runs stop too
-        const again = await quiet(() => N.run({ today: f, now: cutoff + 3600000, log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
+        const again = await quiet(() => N.run({ today: f, now: now + 3600000, log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
         R.check(again === "already" && tg.length === 1 && !group.length && fs.readFileSync(log, "utf8").includes("(опоздание, Telegram)"), `${iso(f)}: after a late send, next run ${again}`);
       }
     }
@@ -90,5 +100,5 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
   R.check(/TZ: Asia\/Dubai/.test(yml), "notify.js must run on Dubai time");
 
   fs.rmSync(dir, { recursive: true, force: true });
-  R.done(`${days} mornings x ${RUNS.length} runs, ${sends} sending days, cutoff checked on ${lateChecked} days`);
+  R.done(`${days} mornings x ${RUNS.length} runs, ${sends} sending days, late runs checked on ${lateChecked} days (${shabbatCapped} before Shabbat or Yom Tov)`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

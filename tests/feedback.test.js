@@ -1,6 +1,7 @@
 // The monthly message asking the family for ideas, every month to 2036: the first Sunday, or when that morning is
 // Shabbat or Yom Tov or already has a family message, the next ordinary morning with no other message; sent exactly
 // once per month by the morning runs (logged as "отзыв YYYY-MM"), the exact text, never on Shabbat or Yom Tov.
+// The first one by the user's request on Tuesday 3 November 2026, on its own; the rule from December 2026.
 "use strict";
 const fs = require("fs");
 const os = require("os");
@@ -35,8 +36,9 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
   for (let y = first.getFullYear(), m = first.getMonth(); y < 2037; m === 11 ? (y++, m = 0) : m++) {
     const month = `${y}-${String(m + 1).padStart(2, "0")}`;
     let sun = fixedFromDate(new Date(y, m, 1)); while (dateFromFixed(sun).getDay() !== 0) sun++;
-    if (sun < start) continue;
     const f = sentBy.get(month);
+    if (month === "2026-11") { R.check(f !== undefined && iso(f) === "2026-11-03", `launch: sent ${f && iso(f)}`); months++; continue; }
+    if (sun < start) continue;
     if (f === undefined) { if (N.feedbackDay(y, m) <= end) R.check(false, `${month}: never sent`); continue; }
     months++;
     R.check(f === N.feedbackDay(y, m) && f >= sun, `${month}: sent ${iso(f)}, first Sunday ${iso(sun)}`);
@@ -46,6 +48,14 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
     if (f > sun) { moved++; maxMove = Math.max(maxMove, f - sun); }
   }
   R.check(months >= 120, `only ${months} months`);
+  // the launch morning: exactly the feedback message, on its own; sent once, a second run finds it in the log
+  {
+    const d = fixedFromDate(new Date(2026, 10, 3)), log2 = path.join(dir, "launch"), g = [];
+    const r1 = await quiet(() => N.run({ today: d, now: dateFromFixed(d).getTime() + (6 * 60 + 13) * 60000, log: log2, sendGroup: async t => g.push(t) }));
+    const r2 = await quiet(() => N.run({ today: d, now: dateFromFixed(d).getTime() + (6 * 60 + 43) * 60000, log: log2, sendGroup: async t => g.push(t) }));
+    R.check(r1 === "sent" && r2 === "already" && g.length === 1 && g[0] === TEXT && fs.readFileSync(log2, "utf8") === "2026-11-03 отзыв 2026-11\n", `launch run: ${r1}, ${r2}, ${g.length}`);
+    R.check(!N.feedbackFor(fixedFromDate(new Date(2026, 10, 1))) && N.feedbackFor(fixedFromDate(new Date(2026, 11, 6))) === "2026-12", "no feedback on 1 Nov; 6 Dec is December's");
+  }
   const next = [];
   for (let f = start + 1; next.length < 3; f++) if (N.feedbackFor(f) && !N.buildMessage(f)) next.push(iso(f));
   fs.rmSync(dir, { recursive: true, force: true });

@@ -1,14 +1,17 @@
 name: Omer evening reminder
 
 on:
-  # The Omer evening message (Sefirat HaOmer, March to June). The Vercel trigger (tehilim-trigger) starts this at
-  # 13:00 and 13:30 UTC = 17:00 and 17:30 Dubai on Omer evenings; these two GitHub schedules are a backup.
-  # notify.js decides whether tonight has a message (none on Shabbat, Yom Tov or the evening before them: those
-  # counts go out in the morning message). The first run sends; the others find "YYYY-MM-DD вечер" in notify/sent.log.
-  # A run that starts after sunset in Dubai sends to the admin's Telegram only (see notify.js).
+  # The Omer evening message (Sefirat HaOmer, March to June), posted at nightfall in Dubai. The Vercel trigger
+  # (tehilim-trigger) checks every 5 minutes from 18:00 to 20:55 Dubai and starts this in the first 5 minutes after
+  # Dubai nightfall (18:56 at the earliest, late March; 19:36 at the latest, mid June), and again 30 minutes later as
+  # a backup. These two GitHub schedules (19:43 and 20:13 Dubai, after the latest nightfall) are a further backup.
+  # notify.js decides whether tonight has a message (none on Shabbat, Yom Tov or the evening before them: those counts
+  # go out in the morning message), does nothing earlier than 10 minutes before Dubai nightfall, and posts to the
+  # group until midnight Dubai (later: to the admin's Telegram). The first run sends; the others find
+  # "YYYY-MM-DD вечер" in notify/sent.log.
   schedule:
-    - cron: "13 13 * 3-6 *"
-    - cron: "43 13 * 3-6 *"
+    - cron: "43 15 * 3-6 *"
+    - cron: "13 16 * 3-6 *"
   workflow_dispatch:
     inputs:
       mode:

@@ -117,7 +117,7 @@ const cyrillic = /[а-яё]/i;
       const log = path.join(DIR, "late.log"), cutoff = N.lateCutoff(f);
       const r = await quiet(() => N.run({ today: f, now: cutoff.getTime() + 60000, log }));
       R.check(r === "late" && !w3.group.length && w3.sent.length === 2, `late: ${r}, group ${w3.group.length}, telegram ${w3.sent.length}`);
-      R.check(w3.sent[0].text.startsWith(`⚠️ Tehilim: today's reminder is late (the run started after ${N.dubaiTime(cutoff)} Dubai`) && w3.sent[1].text === text, "late: alert then exactly the family message: " + w3.sent[0].text);
+      R.check(w3.sent[0].text.startsWith(`⚠️ Tehilim: today's reminder ran too late for the group: ${cutoff.what} began at ${N.dubaiTime(cutoff)} Dubai time`) && w3.sent[1].text === text, "late: alert then exactly the family message: " + w3.sent[0].text);
       // Telegram refuses the alert: the family message still goes
       const w4 = world(); let first = true;
       global.fetch = async (url, o) => { if (url.startsWith("https://api.telegram.org/") && first) { first = false; throw new Error("down"); } return w4.fetch(url, o); };
@@ -139,7 +139,7 @@ const cyrillic = /[а-яё]/i;
   }
 
   // ---------- texts ----------
-  const texts = [A.TEXT.whatsappFailed(), A.TEXT.late("15:30"), A.TEXT.whatsapp("QR"), A.TEXT.phone(), A.TEXT.token("2027-10-28", 7)];
+  const texts = [A.TEXT.whatsappFailed(), A.TEXT.late("15:30", "Shabbat or Yom Tov"), A.TEXT.lateEvening(), A.TEXT.whatsapp("QR"), A.TEXT.phone(), A.TEXT.token("2027-10-28", 7)];
   R.check(texts.every(t => !cyrillic.test(t)), "alerts are in English");
   R.check(texts.every(t => !t.includes("—")), "no em dashes in alerts");
   R.check(texts.every(t => t.length < 700), "alerts are short");
