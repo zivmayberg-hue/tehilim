@@ -1,5 +1,5 @@
 // Holidays and Rosh Chodesh: notify.js holidaysOn() must announce exactly the events Hebcal (diaspora)
-// has, on the same Hebrew day, for every day from today to the end of 2036.
+// has, on the same Hebrew day (every Yom Tov night: first and second days, the 7th and 8th of Pesach, Simchat Torah), for every day from today to the end of 2036.
 // Hebcal calls postponed fasts "... (observed)"; those count as matches.
 "use strict";
 const { H, notify, dateFromFixed, fixedFromDate, todayDubai, endOfYear, iso, reporter } = require("./lib");
@@ -14,9 +14,11 @@ const RU_MONTH = { "Cheshvan": "Хешван", "Kislev": "Кислев", "Tevet"
 const HEBCAL = { "Tzom Gedaliah": "gedalia", "Yom Kippur": "yk", "Sukkot I": "sukkot", "Shmini Atzeret": "shmini",
   "Chanukah: 1 Candle": "chanukah", "Asara B'Tevet": "tevet10", "Tu BiShvat": "tubishvat", "Ta'anit Esther": "esther",
   "Purim": "purim", "Pesach I": "pesach", "Lag BaOmer": "lag", "Shavuot I": "shavuot", "Tzom Tammuz": "tammuz17",
-  "Tish'a B'Av": "av9" };
+  "Tish'a B'Av": "av9", "Rosh Hashana II": "rh2", "Sukkot II": "sukkot2", "Simchat Torah": "simchat", "Pesach II": "pesach2",
+  "Pesach VII": "pesach7", "Pesach VIII": "pesach8", "Shavuot II": "shavuot2" };
 // notify.js text prefix -> key
-const NOTIFY = [["Рош а-Шана", "rh"], ["пост Гедальи", "gedalia"], ["Йом Кипур", "yk"], ["Суккот", "sukkot"],
+const NOTIFY = [["Второй день Рош а-Шана", "rh2"], ["Второй день Суккот", "sukkot2"], ["Симхат Тора", "simchat"],
+  ["Второй день Песаха", "pesach2"], ["Седьмой день Песаха", "pesach7"], ["Восьмой день Песаха", "pesach8"], ["Второй день Шавуот", "shavuot2"],["Рош а-Шана", "rh"], ["пост Гедальи", "gedalia"], ["Йом Кипур", "yk"], ["Суккот", "sukkot"],
   ["Шмини Ацерет", "shmini"], ["Ханука", "chanukah"], ["пост 10 Тевета", "tevet10"], ["Ту би-Шват", "tubishvat"],
   ["пост Эстер", "esther"], ["Пурим", "purim"], ["Песах", "pesach"], ["Лаг ба-Омер", "lag"], ["Шавуот", "shavuot"],
   ["пост 17 Тамуза", "tammuz17"], ["Тиша бе-Ав", "av9"]];

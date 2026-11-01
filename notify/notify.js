@@ -2,6 +2,8 @@
 // Запускается каждое утро в 08:00 по Дубаю (GitHub Actions). Если сегодня вечером (с заходом солнца)
 // начинается еврейский день рождения, Рош Ходеш или праздник, отправляет одно сообщение в группу.
 // В субботу и в Йом Тов (диаспора) не отправляет: такие новости уходят заранее, в предыдущий будний день.
+// Первое воскресенье месяца (или следующее свободное утро): письмо семье с просьбой об идеях.
+// node notify/notify.js evening (около 17:00 по Дубаю, evening.yml): в дни Омера счёт на этот вечер.
 //
 // Список семьи и весь календарь берутся из ../index.html, поэтому менять список нужно только там.
 //
@@ -33,7 +35,7 @@ function loadCalendar() {
   return new Function(js + `
     return {PEOPLE, hebrewFromFixed, fixedFromHebrew, fixedFromYMD, birthdayInYear, roshChodesh,
             hLeap, hMonthsInYear, hMonthLength, ruMonth, ruMonthNom, yearsWord,
-            holidaySpans, spanTimes, sunsetOn, candlesOn, havdalahOn};`)();
+            holidaySpans, spanTimes, sunsetOn, candlesOn, havdalahOn, fastEndOn, dawnOn, omerDay, omerHe, omerRu};`)();
 }
 const C = loadCalendar();
 
@@ -58,11 +60,14 @@ function holidaysOn(f) {
     if (dow(g) === 6) g += 1;
     return g === f;
   };
-  if (at(7, 1)) out.push({ start: "evening", text: `Рош а-Шана, начало ${y} года. Шана това у-метука! 🍎🍯` });
+  if (at(7, 1)) out.push({ start: "evening", yt: true, text: `Рош а-Шана, начало ${y} года. Шана това у-метука! 🍎🍯` });
+  if (at(7, 2)) out.push({ start: "evening", yt: true, text: "Второй день Рош а-Шана." });
   if (fastAt(7, 3)) out.push({ start: "dawn", fast: "gedalia", text: "пост Гедальи, с рассвета до выхода звёзд." });
   if (at(7, 10)) out.push({ start: "evening", fast: "yk", text: "Йом Кипур. Гмар хатима това! 🕯️" });
-  if (at(7, 15)) out.push({ start: "evening", text: "Суккот. Хаг самеах! 🌿" });
-  if (at(7, 22)) out.push({ start: "evening", text: "Шмини Ацерет, а на следующий вечер Симхат Тора. Хаг самеах! 📜" });
+  if (at(7, 15)) out.push({ start: "evening", yt: true, text: "Суккот. Хаг самеах! 🌿" });
+  if (at(7, 16)) out.push({ start: "evening", yt: true, text: "Второй день Суккот." });
+  if (at(7, 22)) out.push({ start: "evening", yt: true, text: "Шмини Ацерет. Хаг самеах! 📜" });
+  if (at(7, 23)) out.push({ start: "evening", yt: true, text: "Симхат Тора. Хаг самеах! 📜" });
   if (at(9, 25)) out.push({ start: "evening", chanukah: true, text: "Ханука. Хаг Ханука самеах! 🕎" });
   {                                                  // 10 Тевета никогда не выпадает на субботу
     if (at(10, 10)) out.push({ start: "dawn", fast: "tevet10", text: "пост 10 Тевета, с рассвета до выхода звёзд." });
@@ -74,9 +79,13 @@ function holidaysOn(f) {
     if (g === f) out.push({ start: "dawn", fast: "esther", text: "пост Эстер, с рассвета до выхода звёзд." });
   }
   if (at(adarLast(y), 14)) out.push({ start: "evening", purim: true, text: "Пурим. Пурим самеах! 🎭" });
-  if (at(1, 15)) out.push({ start: "evening", text: "Песах, первый седер. Хаг кашер ве-самеах! 🍷" });
+  if (at(1, 15)) out.push({ start: "evening", yt: true, text: "Песах, первый седер. Хаг кашер ве-самеах! 🍷" });
+  if (at(1, 16)) out.push({ start: "evening", yt: true, text: "Второй день Песаха, второй седер." });
+  if (at(1, 21)) out.push({ start: "evening", yt: true, text: "Седьмой день Песаха. Хаг самеах! 🌊" });
+  if (at(1, 22)) out.push({ start: "evening", yt: true, text: "Восьмой день Песаха." });
   if (at(2, 18)) out.push({ start: "evening", text: "Лаг ба-Омер. 🔥" });
-  if (at(3, 6)) out.push({ start: "evening", text: "Шавуот, праздник дарования Торы. Хаг самеах! 🌾" });
+  if (at(3, 6)) out.push({ start: "evening", yt: true, text: "Шавуот, праздник дарования Торы. Хаг самеах! 🌾" });
+  if (at(3, 7)) out.push({ start: "evening", yt: true, text: "Второй день Шавуот." });
   if (fastAt(4, 17)) out.push({ start: "dawn", fast: "tammuz17", text: "пост 17 Тамуза, с рассвета до выхода звёзд." });
   if (fastAt(5, 9)) out.push({ start: "evening", fast: "av9", text: "Тиша бе-Ав, пост до выхода звёзд следующего дня." });
 
@@ -189,11 +198,15 @@ function relWhen(today, f, start, fast = false) {
 }
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-function eventsFor(today) {
-  if (isNoPostDay(today)) return null;              // в субботу и Йом Тов молчим
+// Еврейские дни, о которых говорит утреннее сообщение: сегодняшний вечер и все вечера Шабата и Йом Това подряд за ним
+function morningDays(today) {
   const days = [today + 1];                          // события, которые начинаются сегодня вечером
   for (let k = 1; isNoPostDay(today + k) && k < 5; k++) days.push(today + k + 1);
-  const ev = [];
+  return days;
+}
+function eventsFor(today) {
+  if (isNoPostDay(today)) return null;              // в субботу и Йом Тов молчим
+  const days = morningDays(today), ev = [];
   for (const f of days) {
     for (const e of birthdaysOn(f)) ev.push({ ...e, f });
     for (const e of holidaysOn(f)) ev.push({ ...e, f });
@@ -249,6 +262,18 @@ function chanukahFridayLine(today, sat) {
   if (night < 2 || night > 8) return null;
   return [`🕎 ${sat - 1 === today ? "Сегодня" : "В пятницу"} ${night}-я свеча, зажечь до свечей Шабата.`, CHANUKAH_FRIDAY];
 }
+// Свечи Йом Това (как на chabad.org): первый вечер за 18 минут до заката (Герцлия 30); второй вечер и вечер после
+// Шабата после выхода звёзд от уже горящего огня, время как «Candle Lighting after» на chabad.org (8.5°, как исход);
+// вечер пятницы до захода солнца, время в блоке Шабата. В Израиле второго дня праздника нет (кроме Рош а-Шана).
+const ISRAEL_YT = new Set(["7/1", "7/2", "7/10", "7/15", "7/22", "1/15", "1/21", "3/6"]);
+function ytLines(f) {
+  const d = f - 1, h = C.hebrewFromFixed(f), il = ISRAEL_YT.has(`${h.m}/${h.d}`);
+  if (dow(f) === 6) return [isNoPostDay(d) ? "Свечи зажигаем до захода солнца, от уже горящего огня, время в блоке Шабата ниже."
+    : "Свечи праздника и Шабата зажигаем вместе, время в блоке Шабата ниже."];
+  if (isNoPostDay(d)) return [`Свечи зажигаем ${dow(d) === 6 ? "после исхода Шабата" : "после выхода звёзд"}, от уже горящего огня:`,
+    ...SHABBAT_CITIES.map(c => c.tz === "Asia/Jerusalem" && !il ? `${c.ru}: в Израиле праздник уже закончился` : `${c.ru}: после ${hm(C.havdalahOn(d, c), c.tz)}`)];
+  return ["Зажигание свечей 🕯️:", ...SHABBAT_CITIES.map(c => `${c.ru}: ${hm(C.candlesOn(d, c), c.tz)}`)];
+}
 // Пурим сразу после поста Эстер: напоминаем, когда пост заканчивается
 function purimAfterFastLines(today, f) {
   const s = C.holidaySpans(C.hebrewFromFixed(f).y).find(x => x.key === "esther");
@@ -258,15 +283,86 @@ function purimAfterFastLines(today, f) {
     ...SHABBAT_CITIES.map(c => `${c.ru}: ${hm(C.spanTimes(s, c).end, c.tz)}`)];
 }
 
+// ---------- Сфират а-Омер ----------
+// Вечер гражданского дня d считает еврейский день d + 1. Отдельное вечернее сообщение (около 17:00 по Дубаю) только
+// если ни день d, ни вечер после него не Шабат и не Йом Тов (диаспора, то есть ни в одном из пяти городов). Иначе счёт
+// уходит в последнее утреннее сообщение перед этим вечером: в пятницу утром пятница и суббота вечером, накануне праздника
+// все его вечера, накануне Песаха первые два вечера счёта.
+const omerEvening = d => !isNoPostDay(d) && !isNoPostDay(d + 1) ? C.omerDay(d + 1) : 0;
+const omerNightsInMorning = today => morningDays(today).filter(f => C.omerDay(f) && !(f === today + 1 && omerEvening(today)));
+const nightfallRows = d => SHABBAT_CITIES.map(c => `${c.ru}: ${hm(C.fastEndOn(d, c), c.tz)}`);
+function omerAfter(d) {                                // когда считаем вечером гражданского дня d
+  if (dow(d) === 6) return "после авдалы";
+  if (isNoPostDay(d) && !isNoPostDay(d + 1)) return "после исхода праздника";
+  return "после выхода звёзд";
+}
+const omerLine = n => C.omerRu(n) + (n === 33 ? ", Лаг ба-Омер 🔥" : n === 49 ? ", последний" : "");
+function omerMorningLines(today, nights) {
+  const out = [];
+  if (nights.some(f => C.omerDay(f) === 1))
+    out.push("🌾 Со второго вечера Песаха считаем Омер, 49 вечеров до Шавуота. Каждый вечер здесь будет короткое напоминание, а перед Шабатом и праздниками заранее, утром.");
+  out.push(nights.length > 1 ? "🌾 Счёт Омера на эти вечера (в Шабат и праздники сообщений нет):" : "🌾 Счёт Омера:");
+  for (const f of nights) {
+    const d = f - 1, n = C.omerDay(f);
+    const when = d === today ? "Сегодня вечером" : d === today + 1 && dow(d) !== 6 ? "Завтра вечером" : cap(`${WEEKDAY_ACC[dow(d)]} вечером`);
+    out.push(`${when}, ${omerAfter(d)}: ${omerLine(n)}.`, C.omerHe(n));
+    if (d === today) out.push("Выход звёзд сегодня:", ...nightfallRows(d));
+  }
+  return out;
+}
+// Вечернее сообщение гражданского дня today или null
+function eveningMessage(today) {
+  const n = omerEvening(today);
+  if (!n) return null;
+  const head = `${n}-й день Омера` + C.omerRu(n).slice(`${n}-й день`.length) + (n === 33 ? ". Начинается Лаг ба-Омер 🔥" : n === 49 ? ", последний день счёта" : "");
+  const lines = [`🌾 Сегодня вечером ${head}.`, C.omerHe(n),
+    "Считаем после выхода звёзд:", ...nightfallRows(today), `Благословение и текст: ${SITE_URL}`];
+  return { text: lines.join("\n"), omer: n };
+}
+
+// ---------- письмо семье раз в месяц: первое воскресенье; если в это утро Шабат, Йом Тов или уже есть сообщение,
+// то следующее обычное утро без другого сообщения ----------
+const FEEDBACK = "Дорогая семья! Это ваш Теилим-бот 🤖\n" +
+  "Мы продолжаем развивать сайт и будем рады вашим идеям. Что добавить или улучшить? Напишите здесь в чате или запишите голосовое сообщение, как вам удобнее. Лучшие идеи войдут в следующие обновления. Спасибо! 🤍\n\n" +
+  "Dear family, this is your Tehilim bot 🤖\n" +
+  "We keep developing the site and would love your ideas. What should we add or improve? Write here in the chat or send a voice message, whatever is easier. The best ideas will go into the next updates. Thank you! 🤍";
+function feedbackDay(y, m0) {                          // месяц m0 (0-11) года y -> R.D. дня отправки
+  let f = C.fixedFromYMD(y, m0, 1);
+  while (dow(f) !== 0) f++;
+  while (isNoPostDay(f) || buildMessage(f)) f++;
+  return f;
+}
+// Первое письмо по просьбе пользователя во вторник 3 ноября 2026, отдельным сообщением; дальше с декабря 2026 по правилу
+const FEEDBACK_LAUNCH = { "2026-11-03": "2026-11" }, FEEDBACK_FROM = 2026 * 12 + 11;
+function feedbackFor(today) {                          // "YYYY-MM", если сегодня утром письмо этого месяца (или прошлого)
+  if (FEEDBACK_LAUNCH[isoFromFixed(today)]) return FEEDBACK_LAUNCH[isoFromFixed(today)];
+  const c = civil(today);
+  for (const [y, m0] of [[c.y, c.m], c.m ? [c.y, c.m - 1] : [c.y - 1, 11]])
+    if (y * 12 + m0 >= FEEDBACK_FROM && feedbackDay(y, m0) === today) return `${y}-${String(m0 + 1).padStart(2, "0")}`;
+  return null;
+}
+// Утреннее сообщение: новости на вечер или, в свой день, письмо семье
+function morningMessage(today) {
+  const msg = buildMessage(today);
+  if (msg) return msg;
+  const month = feedbackFor(today);
+  return month ? { text: FEEDBACK, events: [], omer: [], feedback: month } : null;
+}
+
 function buildMessage(today) {
   const ev = eventsFor(today);
-  if (!ev || ev.length === 0) return null;
+  if (!ev) return null;
+  const nights = omerNightsInMorning(today);
+  if (ev.length === 0 && nights.length === 0) return null;
   const lines = ["Доброе утро, семья! ☀️", ""], links = [];
   let block = false;                                   // после блока с таблицей времени нужна пустая строка
   const gap = () => { if (lines.length > 2) lines.push(""); };
+  let omerDone = !nights.length;
+  const omerBlock = () => { if (omerDone) return; omerDone = true; gap(); lines.push(...omerMorningLines(today, nights)); block = true; };
   for (const e of ev) {
     const when = relWhen(today, e.f, e.start, !!e.fast);
     if (e.shabbat) {
+      omerBlock();                                     // счёт Омера перед блоком Шабата
       gap();
       const ch = chanukahFridayLine(today, e.f);
       lines.push(`🕯️ ${when} начинается Шабат.`, ...(ch || []), e.parsha, "", "Зажигание свечей 🕯️ и исход Шабата ✨:", ...e.rows, "", "Шабат шалом! 🤍");
@@ -277,11 +373,12 @@ function buildMessage(today) {
     if (e.chanukah) { gap(); lines.push(...chanukahLines(today, e.f, when)); block = true; continue; }
     if (block) { lines.push(""); block = false; }
     lines.push(e.start === "dawn" ? `${when} ${e.text}` : `${when} начинается ${e.text}`);
-    const extra = e.fast ? fastLines(e.fast, e.f, today) : e.purim ? purimAfterFastLines(today, e.f) : [];
+    const extra = e.fast ? fastLines(e.fast, e.f, today) : e.purim ? purimAfterFastLines(today, e.f) : e.yt ? ytLines(e.f) : [];
     if (extra.length) { lines.push(...extra); block = true; }
   }
+  omerBlock();
   lines.push("", `Теилим для семьи: ${SITE_URL}`, ...links);
-  return { text: lines.join("\n"), events: ev };
+  return { text: lines.join("\n"), events: ev, omer: nights.map(C.omerDay), nights };
 }
 
 // ---------- отправка ----------
@@ -368,35 +465,79 @@ function isoFromFixed(f) { return new Date((f - 719163) * 86400000).toISOString(
 
 // ---------- опоздание ----------
 // Утром запусков несколько (GitHub часто запускает по расписанию с опозданием); отправляет первый, остальные видят
-// сегодняшнюю строку в sent.log и останавливаются. Если запуск начался позже, чем за 2 часа до заката в Дубае,
-// «сегодня вечером» в группе звучит уже поздно: тогда админу в Telegram оповещение «опоздало» и отдельно само сообщение.
-const LATE_BEFORE_SUNSET_MS = 2 * 3600 * 1000;
-function lateCutoff(today) {
-  const H = hebcal(), c = civil(today), dubai = SHABBAT_CITIES[0];
-  const sunset = new H.Zmanim(new H.GeoLocation(null, dubai.lat, dubai.lon, 0, dubai.tz), new Date(c.y, c.m, c.d), false).sunset();
-  return new Date(sunset.getTime() - LATE_BEFORE_SUNSET_MS);
+// сегодняшнюю строку в sent.log и останавливаются. Поздний запуск всё равно пишет в группу, пока не началось первое
+// событие сообщения (самое раннее из пяти городов) и пока ни в одном из пяти городов не начался Шабат или Йом Тов.
+// После этого: админу в Telegram оповещение по-английски и отдельно само сообщение, чтобы переслать.
+function eventStart(e, c) {                            // когда событие начинается в городе c
+  const d = e.f - 1;
+  if (e.start === "dawn") return C.dawnOn(e.f, c);
+  if (e.shabbat || e.yt || e.fast === "yk") return isNoPostDay(d) ? C.havdalahOn(d, c) : C.candlesOn(d, c);
+  return C.sunsetOn(d, c);
+}
+// Момент, после которого утреннее сообщение в группу уже не идёт; .what говорит, что началось
+function lateCutoff(today, msg = buildMessage(today)) {
+  const starts = [];
+  if (msg) {
+    for (const e of msg.events) for (const c of SHABBAT_CITIES) starts.push({ t: eventStart(e, c), what: e.shabbat || e.yt || e.fast === "yk" ? "Shabbat or Yom Tov" : "the first event in it" });
+    for (const f of msg.nights) for (const c of SHABBAT_CITIES) starts.push({ t: C.fastEndOn(f - 1, c), what: "the first event in it" });
+  }
+  if (isNoPostDay(today + 1)) for (const c of SHABBAT_CITIES) starts.push({ t: C.candlesOn(today, c), what: "Shabbat or Yom Tov" });
+  if (!starts.length) starts.push({ t: C.sunsetOn(today, SHABBAT_CITIES[0]), what: "the evening" });   // письмо семье: до вечера
+  const first = starts.reduce((x, y) => y.t < x.t ? y : x), d = new Date(first.t.getTime());
+  d.what = first.what;
+  return d;
 }
 const dubaiTime = d => new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
 
-// Один запуск. Возвращает "none" | "already" | "sent" | "late" (в Telegram) | "dry"
-async function run({ today, now, dry = false, test = false, log = LOG, sendGroup = send,
-                     sendLate = (t, cutoff) => sendForward(require("./alerts").TEXT.late(dubaiTime(cutoff)), t) }) {
+// Вечер (Омер): сообщение идёт с выхода звёзд в Дубае (раньше чем за 10 минут до него запуск ничего не делает, отправит
+// следующий) и до полуночи по Дубаю, пока «сегодня вечером» ещё верно; Шабата и Йом Това в такие вечера не бывает
+const eveningStart = today => new Date(C.fastEndOn(today, SHABBAT_CITIES[0]).getTime() - 10 * 60000);
+function eveningCutoff(today) {
+  const d = new Date(Date.parse(isoFromFixed(today + 1) + "T00:00:00+04:00"));
+  d.what = "midnight";
+  return d;
+}
+// Строки sent.log: «YYYY-MM-DD …» утро, «YYYY-MM-DD отзыв YYYY-MM» письмо семье, «YYYY-MM-DD вечер Омер N» вечер
+const logLines = log => fs.existsSync(log) ? fs.readFileSync(log, "utf8").split("\n") : [];
+const sentMorning = (log, iso) => logLines(log).some(l => l.startsWith(iso + " ") && !l.startsWith(iso + " вечер") && !l.startsWith(iso + " отзыв "));
+const sentEvening = (log, iso) => logLines(log).some(l => l.startsWith(iso + " вечер"));
+const sentFeedback = (log, month) => logLines(log).some(l => / отзыв /.test(l) && l.endsWith(" отзыв " + month));
+
+// Один запуск. slot: "morning" | "evening". Утром новости и, в свой день, отдельным сообщением письмо семье.
+// Возвращает "none" | "early" | "already" | "sent" | "late" (в Telegram) | "dry"
+async function run({ today, now, slot = "morning", dry = false, test = false, log = LOG, sendGroup = send,
+                     sendLate = (t, cutoff) => sendForward(require("./alerts").TEXT[slot === "evening" ? "lateEvening" : "late"](dubaiTime(cutoff), cutoff.what), t) }) {
   const iso = isoFromFixed(today);
   if (test) {
     const text = `Проверка связи ✅\nЭто бот «Теилим для семьи». Утром, перед днями рождения, Рош Ходешем и праздниками, здесь будет короткое напоминание.\n${SITE_URL}`;
     console.log(text); if (!dry) await sendGroup(text); return dry ? "dry" : "sent";
   }
-  const msg = buildMessage(today);
-  if (!msg) { console.log(iso, "сообщений нет"); return "none"; }
-  const already = fs.existsSync(log) && fs.readFileSync(log, "utf8").split("\n").some(l => l.startsWith(iso + " "));
-  if (already) { console.log(msg.text); console.log("Сегодня уже отправлено, пропускаю."); return "already"; }
-  const cutoff = lateCutoff(today), late = now >= cutoff.getTime(), text = msg.text;
-  if (late) console.log(`Запуск позже ${dubaiTime(cutoff)} по Дубаю (за 2 часа до заката): в группу не пишу, отправляю в Telegram.`);
-  console.log(text);
-  if (dry) { console.log(`Пробный запуск: ничего не отправлено (${late ? "ушло бы в Telegram" : "ушло бы в группу"}).`); return "dry"; }
-  if (late) await sendLate(text, cutoff); else await sendGroup(text);
-  fs.appendFileSync(log, `${iso} ${msg.events.map(e => e.name ? "ДР:" + e.name : e.text.split(/[.,]/)[0]).join(" | ")}${late ? " (опоздание, Telegram)" : ""}\n`);
-  return late ? "late" : "sent";
+  const items = [];
+  if (slot === "evening") {
+    const m = eveningMessage(today);
+    if (m) {
+      if (!sentEvening(log, iso) && now < eveningStart(today).getTime()) { console.log(`Рано: до выхода звёзд в Дубае (${dubaiTime(C.fastEndOn(today, SHABBAT_CITIES[0]))}), отправит следующий запуск.`); return "early"; }
+      items.push({ text: m.text, already: sentEvening(log, iso), cutoff: eveningCutoff(today), line: `вечер Омер ${m.omer}` });
+    }
+  } else {
+    const m = buildMessage(today), fb = feedbackFor(today);
+    if (m) items.push({ text: m.text, already: sentMorning(log, iso), cutoff: lateCutoff(today, m),
+      line: [...m.events.map(e => e.name ? "ДР:" + e.name : e.text.split(/[.,]/)[0]), ...m.omer.map(n => `Омер ${n}`)].join(" | ") });
+    if (fb) items.push({ text: FEEDBACK, already: sentFeedback(log, fb), cutoff: lateCutoff(today, null), line: `отзыв ${fb}` });
+  }
+  if (!items.length) { console.log(iso, slot === "evening" ? "вечернего сообщения нет" : "сообщений нет"); return "none"; }
+  const res = [];
+  for (const it of items) {
+    if (it.already) { console.log(it.text); console.log("Сегодня уже отправлено, пропускаю."); res.push("already"); continue; }
+    const late = now >= it.cutoff.getTime();
+    if (late) console.log(`Запуск после ${dubaiTime(it.cutoff)} по Дубаю (${it.cutoff.what}): в группу не пишу, отправляю в Telegram.`);
+    console.log(it.text);
+    if (dry) { console.log(`Пробный запуск: ничего не отправлено (${late ? "ушло бы в Telegram" : "ушло бы в группу"}).`); res.push("dry"); continue; }
+    if (late) await sendLate(it.text, it.cutoff); else await sendGroup(it.text);
+    fs.appendFileSync(log, `${iso} ${it.line}${late ? " (опоздание, Telegram)" : ""}\n`);
+    res.push(late ? "late" : "sent");
+  }
+  return ["sent", "late", "dry"].find(r => res.includes(r)) || "already";
 }
 
 async function main() {
@@ -404,8 +545,9 @@ async function main() {
   // Перед отправкой: подключён ли WhatsApp бота. Если нет, оповещение админу (раз в день)
   try { await require("./alerts").whatsappCheck(require("./alerts").context({ now })); }
   catch (e) { console.log("Проверка WhatsApp не удалась:", e.message); }
-  await run({ today: todayFixed(now), now, dry: process.env.DRY_RUN === "1", test: process.env.TEST_MESSAGE === "1" });
+  const slot = process.argv[2] === "evening" || process.env.SLOT === "evening" ? "evening" : "morning";
+  await run({ today: todayFixed(now), now, slot, dry: process.env.DRY_RUN === "1", test: process.env.TEST_MESSAGE === "1" });
 }
 
-module.exports = { send, sendTelegram, buildMessage, eventsFor, holidaysOn, birthdaysOn, isNoPostDay, C, dow, run, lateCutoff, dubaiTime };
+module.exports = { eveningCutoff, eveningStart, ytLines, FEEDBACK_LAUNCH, send, sendTelegram, buildMessage, morningMessage, eveningMessage, feedbackDay, feedbackFor, FEEDBACK, omerEvening, omerNightsInMorning, eventsFor, holidaysOn, birthdaysOn, isNoPostDay, C, dow, run, lateCutoff, dubaiTime };
 if (require.main === module) main().catch(e => { console.error(e.message); process.exit(1); });

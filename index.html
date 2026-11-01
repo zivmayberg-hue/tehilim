@@ -130,6 +130,10 @@ h2{font-family:var(--ui);font-size:calc(15px * var(--scale));font-weight:600;col
 /* Shabbat card and holiday banners: same glass card as Rosh Chodesh, times in large gold tiles */
 #shabbat,#banners{display:flex;flex-direction:column;gap:14px}
 #banners:empty{display:none}
+/* Сфират а-Омер: благословение и счёт на иврите (справа налево), смысл и правила на языке страницы */
+.omer-he{font-family:var(--hebrew);direction:rtl;text-align:right;margin:4px 0 0;font-size:calc(25px * var(--scale));line-height:1.75;color:var(--fg)}
+.omer-he.c{font-weight:700;color:var(--tint-fg);font-size:calc(28px * var(--scale))}
+.omer-note{font-size:calc(15px * var(--scale))}
 .shabbat-t{font-size:calc(32px * var(--scale))}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10em),1fr));gap:10px;margin-top:6px}
 .tile{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--num-bg);color:var(--num-fg);
@@ -392,6 +396,14 @@ const T = {
     bdToday:ch => `Сегодня день рождения! Теперь читать Псалом ${ch}.`,
     bdSoon:(n, evening, ch) => `${n === 1 ? (evening ? "Завтра вечером, после захода солнца," : "Сегодня вечером, после захода солнца,") : `Через ${n} ${n < 5 ? "дня" : "дней"}`} день рождения. Потом читать Псалом ${ch}.`,
     next:(name, ch) => `Следующий: ${name}, Псалом ${ch}`, backToList:"Назад к списку",
+    omerTitle:"Сфират а-Омер", omerTonight:n => `Сегодня вечером ${n}-й день Омера.`,
+    omerNight:n => `Этой ночью считаем ${n}-й день Омера, с благословением можно до рассвета.`, omerToday:n => `Сегодня ${n}-й день Омера.`,
+    omerTile:"Считать после выхода звёзд", omerForgot:"Если забыли вечером, считайте днём без благословения, и дальше можно считать с благословением.",
+    omerMissed:"Если пропустили целый день (и вечер, и день), продолжайте считать каждый вечер, но без благословения.",
+    omerLagEve:"🔥 Сегодня вечером начинается Лаг ба-Омер.", omerLag:"🔥 Сегодня Лаг ба-Омер.",
+    omerBlessingMeaning:"Благословен Ты, Господь, Бог наш, Царь вселенной, освятивший нас Своими заповедями и повелевший нам считать Омер.",
+    omerMeaning:n => { const w = Math.floor(n / 7), d = n % 7;
+      return `Сегодня ${n} ${daysWord(n)}` + (w ? `, то есть ${w === 1 ? "неделя" : `${w} ${weeksWord(w)}`}${d ? ` и ${d} ${daysWord(d)}` : ""}` : "") + " Омера."; },
     chLight:n => `Сегодня вечером зажигаем ${n} ${candlesWord(n)}.`, chFri:"Сначала зажигаем свечи Хануки, потом субботние.",
     chFriTile:"Свечи Хануки, до субботних", chSat:"Свечи Хануки зажигаем после авдалы.", chSatTile:"Свечи Хануки, после авдалы",
     chTile:"Свечи Хануки, после захода", chLast:"Сегодня последний день Хануки.",
@@ -429,6 +441,14 @@ const T = {
     bdToday:ch => `Birthday today! From now on, read Psalm ${ch}.`,
     bdSoon:(n, evening, ch) => `${n === 1 ? (evening ? "Birthday tomorrow evening, after sunset." : "Birthday this evening, after sunset.") : `Birthday in ${n} days.`} Then read Psalm ${ch}.`,
     next:(name, ch) => `Next: ${name}, Psalm ${ch}`, backToList:"Back to the list",
+    omerTitle:"Counting the Omer", omerTonight:n => `Tonight is day ${n} of the Omer.`,
+    omerNight:n => `Tonight is day ${n} of the Omer. You can count with the blessing until dawn.`, omerToday:n => `Today is day ${n} of the Omer.`,
+    omerTile:"Count after nightfall", omerForgot:"If you forgot last night, count during the day without the blessing, and from tonight you can count with the blessing again.",
+    omerMissed:"If you missed a whole day (night and day), keep counting every night, but without the blessing.",
+    omerLagEve:"🔥 Lag BaOmer begins tonight.", omerLag:"🔥 Today is Lag BaOmer.",
+    omerBlessingMeaning:"Blessed are You, Lord our God, King of the universe, who made us holy with His commandments and commanded us to count the Omer.",
+    omerMeaning:n => { const w = Math.floor(n / 7), d = n % 7;
+      return `Today is ${enN(n, "day", "days")}` + (w ? `, which ${n === 7 ? "is" : "are"} ${enN(w, "week", "weeks")}${d ? ` and ${enN(d, "day", "days")}` : ""}` : "") + " of the Omer."; },
     chLight:n => `Tonight we light ${enN(n, "candle", "candles")}.`, chFri:"First the Chanukah candles, then the Shabbat candles.",
     chFriTile:"Chanukah candles, before Shabbat candles", chSat:"The Chanukah candles are lit after havdalah.", chSatTile:"Chanukah candles, after havdalah",
     chTile:"Chanukah candles, after sunset", chLast:"Today is the last day of Chanukah.",
@@ -465,6 +485,12 @@ const T = {
     bdToday:ch => `היום יום הולדת! מעכשיו קוראים את פרק ${ch}.`,
     bdSoon:(n, evening, ch) => `${n === 1 ? (evening ? "יום הולדת מחר בערב, אחרי השקיעה." : "יום הולדת הערב, אחרי השקיעה.") : `יום הולדת בעוד ${heDays(n)}.`} אחר כך קוראים את פרק ${ch}.`,
     next:(name, ch) => `הבא: ${name}, פרק ${ch}`, backToList:"חזרה לרשימה",
+    omerTitle:"ספירת העומר", omerTonight:n => `הערב סופרים יום ${n} לעומר.`,
+    omerNight:n => `הלילה סופרים יום ${n} לעומר, בברכה עד עלות השחר.`, omerToday:n => `היום יום ${n} לעומר.`,
+    omerTile:"סופרים אחרי צאת הכוכבים", omerForgot:"מי ששכח לספור בלילה, סופר ביום בלי ברכה, ובלילות הבאים ממשיך לספור בברכה.",
+    omerMissed:"מי ששכח יום שלם (לילה ויום), ממשיך לספור בכל לילה בלי ברכה.",
+    omerLagEve:"🔥 הערב מתחיל ל״ג בעומר.", omerLag:"🔥 היום ל״ג בעומר.",
+    omerBlessingMeaning:"", omerMeaning:() => "",
     chLight:n => `הערב מדליקים ${n === 1 ? "נר אחד" : `${n} נרות`}.`, chFri:"קודם מדליקים נרות חנוכה, ואחר כך נרות שבת.",
     chFriTile:"נרות חנוכה, לפני נרות שבת", chSat:"מדליקים נרות חנוכה אחרי ההבדלה.", chSatTile:"נרות חנוכה, אחרי ההבדלה",
     chTile:"נרות חנוכה, אחרי השקיעה", chLast:"היום היום האחרון של חנוכה.",
@@ -810,6 +836,47 @@ function upcomingBirthdays(day, n){
 }
 function daysWord(n){ const a = n % 100, b = n % 10;
   if (a >= 11 && a <= 14) return "дней"; if (b === 1) return "день"; if (b >= 2 && b <= 4) return "дня"; return "дней"; }
+
+/* ===== СФИРАТ А-ОМЕР: 49 вечеров со второго вечера Песаха (ночь 16 Нисана) до ночи 5 Сивана, накануне Шавуота.
+   Текст по сидуру Хабада «Теилат Ашем», как на chabad.org (Count Today's Omer): «шеhем», «лаомер», без меги и знаков
+   кантилляции. Считаем после выхода звёзд (6°, как конец поста); забыли ночью: днём без благословения, дальше с
+   благословением; пропустили целый день: дальше каждый вечер без благословения. ===== */
+const OMER_BLESSING = "בָּרוּךְ אַתָּה יְיָ אֱלֹהֵינוּ מֶלֶךְ הָעוֹלָם, אֲשֶׁר קִדְּשָׁנוּ בְּמִצְוֹתָיו, וְצִוָּנוּ עַל סְפִירַת הָעוֹמֶר:";
+const OMER_UNITS = ["", "אֶחָד", "שְׁנַיִם", "שְׁלֹשָׁה", "אַרְבָּעָה", "חֲמִשָּׁה", "שִׁשָּׁה", "שִׁבְעָה", "שְׁמוֹנָה", "תִּשְׁעָה"];
+const OMER_TENS = {2:"עֶשְׂרִים", 3:"שְׁלֹשִׁים", 4:"אַרְבָּעִים"}, OMER_VTENS = {2:"וְעֶשְׂרִים", 3:"וּשְׁלֹשִׁים", 4:"וְאַרְבָּעִים"};
+const OMER_REST = ["", "וְיוֹם אֶחָד", "וּשְׁנֵי יָמִים", "וּשְׁלֹשָׁה יָמִים", "וְאַרְבָּעָה יָמִים", "וַחֲמִשָּׁה יָמִים", "וְשִׁשָּׁה יָמִים"];
+function omerDaysHe(n){
+  if (n === 1) return "יוֹם אֶחָד";
+  if (n === 2) return "שְׁנֵי יָמִים";
+  if (n < 10) return OMER_UNITS[n] + " יָמִים";
+  if (n === 10) return "עֲשָׂרָה יָמִים";
+  if (n === 11) return "אַחַד עָשָׂר יוֹם";
+  if (n === 12) return "שְׁנֵים עָשָׂר יוֹם";
+  if (n < 20) return OMER_UNITS[n - 10] + " עָשָׂר יוֹם";
+  const t = Math.floor(n / 10), u = n % 10;
+  return (u ? OMER_UNITS[u] + " " + OMER_VTENS[t] : OMER_TENS[t]) + " יוֹם";
+}
+function omerHe(n){                                   // «הַיּוֹם שְׁמוֹנָה יָמִים שֶׁהֵם שָׁבוּעַ אֶחָד וְיוֹם אֶחָד לָעוֹמֶר»
+  const w = Math.floor(n / 7), d = n % 7;
+  const weeks = w === 1 ? "שָׁבוּעַ אֶחָד" : w === 2 ? "שְׁנֵי שָׁבוּעוֹת" : OMER_UNITS[w] + " שָׁבוּעוֹת";
+  return "הַיּוֹם " + omerDaysHe(n) + (w ? " שֶׁהֵם " + weeks + (d ? " " + OMER_REST[d] : "") : "") + " לָעוֹמֶר";
+}
+// Номер дня Омера для еврейского дня f (1-49) или 0
+function omerDay(f){ const n = f - fixedFromHebrew(hebrewFromFixed(f).y, 1, 16) + 1; return n >= 1 && n <= 49 ? n : 0; }
+const weeksWord = n => n === 1 ? "неделя" : n < 5 ? "недели" : "недель";
+// «8-й день, это неделя и 1 день» (сообщения и страница по-русски)
+function omerRu(n){
+  const w = Math.floor(n / 7), d = n % 7;
+  return `${n}-й день` + (w ? `, это ${w === 1 ? "неделя" : `${w} ${weeksWord(w)}`}${d ? ` и ${d} ${daysWord(d)}` : ""}` : "");
+}
+// Омер на странице в момент t (гражданский день today в городе P): вечером с заката считаем следующий еврейский день,
+// ночью до рассвета ещё можно с благословением, днём до заката «если забыли вечером»
+function omerAt(today, t, P){
+  if (t >= sunsetOn(today, P)){ const n = omerDay(today + 1); return n ? {n, part:"evening", nightfall:fastEndOn(today, P)} : null; }
+  const n = omerDay(today);
+  if (!n) return null;
+  return t < dawnOn(today, P) ? {n, part:"night", nightfall:fastEndOn(today - 1, P)} : {n, part:"day"};
+}
 // Тексты строки: еврейская дата и возраст; когда начинается (вечер гражданского дня f - 1) относительно гражданского дня civilToday
 const LOCALES = {ru:"ru-RU", en:"en-US", he:"he-IL"};
 function upcomingText(u, civilToday, L = "ru"){
@@ -1119,6 +1186,25 @@ function renderCards(today, t, P){
     }
     bbox.appendChild(c);
   }
+  const om = omerAt(today, t, P);
+  if (om) bbox.appendChild(omerCard(om, P));
+}
+// Карточка Омера: с заката счёт этой ночи и время выхода звёзд, днём «если забыли вечером» и счёт без благословения
+function omerCard(om, P){
+  const c = card(tr(LANG, "omerTitle")), heb = (text, cls) => {
+    const p = document.createElement("p"); p.className = "omer-he" + (cls ? " " + cls : ""); p.lang = "he"; p.dir = "rtl"; p.textContent = text; return p; };
+  c.appendChild(line(tr(LANG, om.part === "evening" ? "omerTonight" : om.part === "night" ? "omerNight" : "omerToday", om.n)));
+  if (om.n === 33) c.appendChild(line(tr(LANG, om.part === "evening" ? "omerLagEve" : "omerLag")));
+  if (om.part === "evening"){
+    const tiles = document.createElement("div"); tiles.className = "tiles";
+    tiles.appendChild(timeTile(tr(LANG, "omerTile"), om.nightfall, P)); c.appendChild(tiles);
+  }
+  if (om.part === "day") c.appendChild(line(tr(LANG, "omerForgot")));
+  else c.appendChild(heb(OMER_BLESSING));
+  c.appendChild(heb(omerHe(om.n), "c"));
+  for (const m of [om.part === "day" ? "" : tr(LANG, "omerBlessingMeaning"), tr(LANG, "omerMeaning", om.n)]) if (m) c.appendChild(line(m));
+  const note = line(tr(LANG, "omerMissed")); note.classList.add("omer-note"); c.appendChild(note);
+  return c;
 }
 
 function render(){
@@ -1237,7 +1323,7 @@ startStats();
 if (langFromUrl) stat("lang", {lang: langFromUrl});
 // Обновляем страницу, когда меняется день, наступает закат или появляется/исчезает карточка
 const dayKey = () => { const t = now(), p = partsOf(t), f = fixedFromYMD(p.y, p.m0, p.d), P = place();
-  return [f, hebToday().evening, !!shabbatAt(f, t, P), bannersAt(f, t, P).map(b => b.key + b.lines.join() + b.tiles.length).join()].join("|"); };
+  return [f, hebToday().evening, !!shabbatAt(f, t, P), bannersAt(f, t, P).map(b => b.key + b.lines.join() + b.tiles.length).join(), JSON.stringify(omerAt(f, t, P))].join("|"); };
 let lastDay = dayKey();
 function refreshIfNewDay(){ const d = dayKey(); if (d !== lastDay){ lastDay = d; render(); } }
 document.addEventListener("visibilitychange", ()=>{ if (!document.hidden) refreshIfNewDay(); });
