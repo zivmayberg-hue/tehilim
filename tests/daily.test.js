@@ -74,7 +74,7 @@ const DEVICES = {
   iPhone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   iPad: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
 };
-const TEXT = { ru: ["По дню месяца", "По дню недели", "Прочитано 0 из 12"], en: ["By day of the month", "By day of the week", "Read 0 of 12"],
+const TEXT = { ru: ["По дню месяца", "По дню недели", "Прочитано 0 из 12"], en: ["Monthly cycle", "Weekly cycle", "Read 0 of 12"],
   he: ["לפי יום בחודש", "לפי יום בשבוע", "נקראו 0 מתוך 12"] };
 async function newContext(browser, device = "iPhone", scheme = "light") {
   const ctx = await browser.newContext({ ...DEVICES[device], colorScheme: scheme, timezoneId: "Asia/Dubai", locale: "ru-RU" });

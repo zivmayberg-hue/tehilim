@@ -117,7 +117,7 @@ const box = (page, sel) => page.$eval(sel, e => { const r = e.getBoundingClientR
         const last = await page.$$("#out .card .open");
         await last[last.length - 1].click(); await page.waitForSelector("#rinner .nextbtn");
         // after the family: the reading by day of the month, then by day of the week, then back to the list
-        const NEXT = { ru: ["По дню месяца", "По дню недели"], en: ["By day of the month", "By day of the week"], he: ["לפי יום בחודש", "לפי יום בשבוע"] }[lang];
+        const NEXT = { ru: ["По дню месяца", "По дню недели"], en: ["Monthly cycle", "Weekly cycle"], he: ["לפי יום בחודש", "לפי יום בשבוע"] }[lang];
         for (const want of NEXT) {
           const nt = await page.textContent("#rinner .nextbtn");
           R.check(nt.includes(want), `${tag}: Next "${nt}", expected ${want}`);

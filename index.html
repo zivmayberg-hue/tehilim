@@ -141,7 +141,8 @@ h2{font-family:var(--ui);font-size:calc(15px * var(--scale));font-weight:600;col
 .ps .n{unicode-bidi:isolate}
 .nextbtn{width:100%;margin-top:4px}
 /* Ежедневный Теилим: те же карточки; в плитке диапазон псалмов, при нехватке места переносится после тире */
-.ps.range .n{font-size:calc(32px * var(--scale));line-height:1.1;padding:4px 0;direction:ltr}
+.ps.range{padding-left:10px;padding-right:10px;min-width:calc(100px * var(--scale))}   /* узкая плитка: «140–» над «150», чтобы название карточки помещалось в строку */
+.ps.range .n{font-size:calc(32px * var(--scale));line-height:1.1;padding:4px 0;direction:ltr;width:min-content;margin:0 auto}
 .contbtn{width:100%;margin:0 0 4px}
 .parsha{margin:4px 0 0;font-weight:600;font-size:calc(19px * var(--scale));line-height:1.35}
 .parsha .hp{font-family:var(--hebrew);font-size:1.25em;font-weight:700}
@@ -437,7 +438,7 @@ const T = {
     ykCandles:rel => `Candles and fast begins, ${DAYREL.en[rel]}`,
     startsTonight:"Begins this evening.", rhYear:y => `The year ${y} has begun. Shana tova!`, gmar:"G'mar chatima tova!",
     purim:"Purim sameach!", dayOf:(n, d) => `Day ${n} of ${d}.`, candlesAfterShabbat:"Candles, after Shabbat ends", holidayEnds:"Holiday ends",
-    dailyTitle:"Daily Tehillim", byMonth:"By day of the month", byWeek:"By day of the week", psalmsWord:"Psalms",
+    dailyTitle:"Daily Tehillim", byMonth:"Monthly cycle", byWeek:"Weekly cycle", psalmsWord:"Psalms",
     weekdays:["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Shabbat"],
     psalmLc:n => `Psalm ${n}`, psalmsLc:r => `Psalms ${r}`, psalmVersesLc:(n, r) => `Psalm ${n}, verses ${r}`,
     psalmVerses:(n, r) => `Psalm ${n}, verses ${r}`,
