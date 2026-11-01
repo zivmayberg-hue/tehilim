@@ -1,7 +1,7 @@
 // Morning runs of the reminder: five runs a day (06:13 to 08:43 UTC) must send exactly once, on the first run,
 // sharing notify/sent.log like the serialized GitHub runs do; nothing on Shabbat or Yom Tov; a run that starts
-// later than 2 hours before sunset in Dubai goes to Telegram only, with the warning line; a failed send is retried
-// by the next run. Also checks the workflow file: the five times, one-at-a-time runs, fresh checkout, safe push.
+// later than 2 hours before sunset in Dubai goes to Telegram only (an English alert, then the message itself); a failed
+// send is retried by the next run, and a run restarted by the 12:13 Vercel check posts once, the 12:43 run then stops. Also checks the workflow file: the five times, one-at-a-time runs, fresh checkout, safe push.
 "use strict";
 const fs = require("fs");
 const os = require("os");
@@ -46,7 +46,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
       const log = path.join(dir, `late-${f}-${delta}`), group = [], tg = [];
       const r = await quiet(() => N.run({ today: f, now: cutoff + delta, log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
       const text = N.buildMessage(f).text;
-      R.check(expectLate ? r === "late" && !group.length && tg.length === 1 && tg[0] === N.LATE_PREFIX + text && tg[0].startsWith("⚠️ Напоминание опоздало, отправьте вручную, если ещё актуально:")
+      R.check(expectLate ? r === "late" && !group.length && tg.length === 1 && tg[0] === text
                          : r === "sent" && group.length === 1 && !tg.length, `${iso(f)} cutoff ${delta / 60000} min: ${r}, group ${group.length}, telegram ${tg.length}`);
       if (expectLate) {                              // the late Telegram send is logged, so later runs stop too
         const again = await quiet(() => N.run({ today: f, now: cutoff + 3600000, log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
@@ -65,6 +65,19 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
     const second = await quiet(() => N.run({ today: f, now: at(f, 6, 43), log, sendGroup }));
     const third = await quiet(() => N.run({ today: f, now: at(f, 7, 13), log, sendGroup }));
     R.check(first === "threw" && second === "sent" && third === "already" && group.length === 1, `failed send: ${first}, ${second}, ${third}, sent ${group.length}`);
+  }
+  // 3b. Every morning run fails; the run the 12:13 Vercel check restarts posts once; the 12:43 run finds sent.log
+  {
+    const f = start + [...Array(30).keys()].find(k => N.buildMessage(start + k)), log = path.join(dir, "restart"), group = [];
+    let down = true;
+    const sendGroup = async t => { if (down) throw new Error("network"); group.push(t); };
+    const failed = [];
+    for (const [h, m] of RUNS.slice(0, 4)) { try { await quiet(() => N.run({ today: f, now: at(f, h, m), log, sendGroup })); failed.push("sent?"); } catch { failed.push("threw"); } }
+    down = false;
+    const restarted = await quiet(() => N.run({ today: f, now: at(f, 8, 20), log, sendGroup }));
+    const last = await quiet(() => N.run({ today: f, now: at(f, 8, 43), log, sendGroup }));
+    R.check(failed.every(x => x === "threw") && restarted === "sent" && last === "already" && group.length === 1,
+      `restart after 12:13: morning ${failed}, restarted ${restarted}, 12:43 ${last}, posts ${group.length}`);
   }
 
   // 4. Workflow file

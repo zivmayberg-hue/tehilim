@@ -1,19 +1,12 @@
 name: Admin alerts (daily check, private Telegram only)
 
-# Started every day at 08:13 UTC (12:13 Dubai) by the Vercel cron in tehilim-trigger (/api/check), which first asks
-# GitHub whether notify.yml succeeded today, starts it once more if not, and reads the expiry date of its own GitHub
-# token. This run sends the admin, in the private Telegram chat only: "no successful run today", the token expiry
-# warning (30 and 7 days before), every 10 days "open the bot's WhatsApp", and on Sundays the week's summary.
-# notify/alerts.log keeps each alert to once per problem per day.
+# Started every day at 08:13 UTC (12:13 Dubai) by the Vercel cron in tehilim-trigger (/api/check), which itself
+# alerts the admin when notify.yml has not succeeded today, and passes the expiry date of its own GitHub token here.
+# This run sends the admin, in the private Telegram chat only: the token expiry warning (30 and 7 days before) and
+# every 10 days "open the bot's WhatsApp". notify/alerts.log keeps each alert to once per problem per day.
 on:
   workflow_dispatch:
     inputs:
-      norun:
-        description: "1 = notify.yml has not succeeded today"
-        default: "0"
-      retried:
-        description: "1 = notify.yml was started once more"
-        default: "0"
       token_expires:
         description: "github-authentication-token-expiration of the trigger token"
         default: ""
@@ -23,7 +16,6 @@ on:
 
 permissions:
   contents: write
-  actions: read
 
 concurrency:
   group: tehilim-alerts
@@ -43,13 +35,10 @@ jobs:
       - name: Check and alert
         env:
           TZ: Asia/Dubai
-          GITHUB_TOKEN: ${{ github.token }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           ADMIN_TG_CHAT_ID: ${{ secrets.ADMIN_TG_CHAT_ID }}
           WA_GROUP_ID: ${{ secrets.WA_GROUP_ID }}
-          NORUN: ${{ inputs.norun }}
-          RETRIED: ${{ inputs.retried }}
           TOKEN_EXPIRES: ${{ inputs.token_expires }}
           DRY_RUN: ${{ inputs.mode == 'dry-run' && '1' || '0' }}
         run: node notify/alerts.js daily
@@ -66,13 +55,3 @@ jobs:
             done
             echo "Could not save notify/alerts.log"; exit 1
           fi
-      - name: Alert the admin that a step failed
-        if: failure()
-        env:
-          TZ: Asia/Dubai
-          GITHUB_TOKEN: ${{ github.token }}
-          TG_TOKEN: ${{ secrets.TG_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          ADMIN_TG_CHAT_ID: ${{ secrets.ADMIN_TG_CHAT_ID }}
-          WA_GROUP_ID: ${{ secrets.WA_GROUP_ID }}
-        run: node notify/alerts.js run-failed

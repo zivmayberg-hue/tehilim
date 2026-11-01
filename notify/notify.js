@@ -309,13 +309,22 @@ async function sendTelegram(text) {
   throw new Error("Не удалось отправить в Telegram");
 }
 
+// Сообщение не дошло до WhatsApp: админу короткое оповещение по-английски, затем отдельно ровно то сообщение для семьи,
+// чтобы переслать его в группу. alerts.js подключается только здесь, в момент отправки: Vercel собирает сообщение
+// из index.html и notify.js без него.
+async function sendForward(alertText, text) {
+  try { await require("./alerts").sendAdmin(alertText, require("./alerts").context()); }
+  catch (e) { console.log("Оповещение не отправлено:", e.message); }
+  await sendTelegram(text);
+}
+
 async function send(text) {
   if ((process.env.SEND_MODE || "telegram").toLowerCase() === "telegram") return sendTelegram(text);
   try { return await sendWhatsApp(text); }
   catch (e) {                                          // запасной путь: если WhatsApp не сработал, текст приходит в Telegram
     console.log("WhatsApp не сработал:", e.message);
     if (!process.env.TG_TOKEN || !process.env.TG_CHAT_ID) throw e;
-    await sendTelegram("⚠️ Бот не смог отправить в WhatsApp группу. Отправьте вручную:\n\n" + text);
+    await sendForward(require("./alerts").TEXT.whatsappFailed(), text);
     console.log("Отправлено в Telegram как запасной вариант");
   }
 }
@@ -360,9 +369,8 @@ function isoFromFixed(f) { return new Date((f - 719163) * 86400000).toISOString(
 // ---------- опоздание ----------
 // Утром запусков несколько (GitHub часто запускает по расписанию с опозданием); отправляет первый, остальные видят
 // сегодняшнюю строку в sent.log и останавливаются. Если запуск начался позже, чем за 2 часа до заката в Дубае,
-// «сегодня вечером» в группе звучит уже поздно: тогда сообщение уходит только в Telegram, с пометкой.
+// «сегодня вечером» в группе звучит уже поздно: тогда админу в Telegram оповещение «опоздало» и отдельно само сообщение.
 const LATE_BEFORE_SUNSET_MS = 2 * 3600 * 1000;
-const LATE_PREFIX = "⚠️ Напоминание опоздало, отправьте вручную, если ещё актуально:\n\n";
 function lateCutoff(today) {
   const H = hebcal(), c = civil(today), dubai = SHABBAT_CITIES[0];
   const sunset = new H.Zmanim(new H.GeoLocation(null, dubai.lat, dubai.lon, 0, dubai.tz), new Date(c.y, c.m, c.d), false).sunset();
@@ -371,7 +379,8 @@ function lateCutoff(today) {
 const dubaiTime = d => new Intl.DateTimeFormat("ru-RU", { timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
 
 // Один запуск. Возвращает "none" | "already" | "sent" | "late" (в Telegram) | "dry"
-async function run({ today, now, dry = false, test = false, log = LOG, sendGroup = send, sendLate = sendTelegram }) {
+async function run({ today, now, dry = false, test = false, log = LOG, sendGroup = send,
+                     sendLate = (t, cutoff) => sendForward(require("./alerts").TEXT.late(dubaiTime(cutoff)), t) }) {
   const iso = isoFromFixed(today);
   if (test) {
     const text = `Проверка связи ✅\nЭто бот «Теилим для семьи». Утром, перед днями рождения, Рош Ходешем и праздниками, здесь будет короткое напоминание.\n${SITE_URL}`;
@@ -381,22 +390,22 @@ async function run({ today, now, dry = false, test = false, log = LOG, sendGroup
   if (!msg) { console.log(iso, "сообщений нет"); return "none"; }
   const already = fs.existsSync(log) && fs.readFileSync(log, "utf8").split("\n").some(l => l.startsWith(iso + " "));
   if (already) { console.log(msg.text); console.log("Сегодня уже отправлено, пропускаю."); return "already"; }
-  const cutoff = lateCutoff(today), late = now >= cutoff.getTime(), text = late ? LATE_PREFIX + msg.text : msg.text;
+  const cutoff = lateCutoff(today), late = now >= cutoff.getTime(), text = msg.text;
   if (late) console.log(`Запуск позже ${dubaiTime(cutoff)} по Дубаю (за 2 часа до заката): в группу не пишу, отправляю в Telegram.`);
   console.log(text);
   if (dry) { console.log(`Пробный запуск: ничего не отправлено (${late ? "ушло бы в Telegram" : "ушло бы в группу"}).`); return "dry"; }
-  if (late) await sendLate(text); else await sendGroup(text);
+  if (late) await sendLate(text, cutoff); else await sendGroup(text);
   fs.appendFileSync(log, `${iso} ${msg.events.map(e => e.name ? "ДР:" + e.name : e.text.split(/[.,]/)[0]).join(" | ")}${late ? " (опоздание, Telegram)" : ""}\n`);
   return late ? "late" : "sent";
 }
 
 async function main() {
   const now = process.env.NOW ? Date.parse(process.env.NOW) : Date.now();
-  // Перед отправкой: подключён ли WhatsApp бота. Если нет, оповещение админу (раз в день); запасной путь в Telegram не меняется
+  // Перед отправкой: подключён ли WhatsApp бота. Если нет, оповещение админу (раз в день)
   try { await require("./alerts").whatsappCheck(require("./alerts").context({ now })); }
   catch (e) { console.log("Проверка WhatsApp не удалась:", e.message); }
   await run({ today: todayFixed(now), now, dry: process.env.DRY_RUN === "1", test: process.env.TEST_MESSAGE === "1" });
 }
 
-module.exports = { send, sendTelegram, buildMessage, eventsFor, holidaysOn, birthdaysOn, isNoPostDay, C, dow, run, lateCutoff, LATE_PREFIX };
+module.exports = { send, sendTelegram, buildMessage, eventsFor, holidaysOn, birthdaysOn, isNoPostDay, C, dow, run, lateCutoff, dubaiTime };
 if (require.main === module) main().catch(e => { console.error(e.message); process.exit(1); });
