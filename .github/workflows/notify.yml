@@ -51,6 +51,7 @@ jobs:
           SEND_MODE: ${{ vars.SEND_MODE || 'telegram' }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ADMIN_TG_CHAT_ID: ${{ secrets.ADMIN_TG_CHAT_ID }}
           WA_PROVIDER: ${{ secrets.WA_PROVIDER }}
           WA_TOKEN: ${{ secrets.WA_TOKEN }}
           WA_INSTANCE: ${{ secrets.WA_INSTANCE }}
@@ -60,10 +61,10 @@ jobs:
         run: node notify/notify.js
       - name: Save the sent log (also keeps the schedule active)
         run: |
-          if [ -n "$(git status --porcelain notify/sent.log)" ]; then
+          if [ -n "$(git status --porcelain notify/sent.log notify/alerts.log)" ]; then
             git config user.name "tehilim-bot"
             git config user.email "tehilim-bot@users.noreply.github.com"
-            git add notify/sent.log
+            git add notify/sent.log notify/alerts.log
             git commit -m "Reminder sent $(TZ=Asia/Dubai date +%F)"
             for i in 1 2 3; do
               git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin "HEAD:$GITHUB_REF_NAME" && exit 0
