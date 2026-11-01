@@ -1,4 +1,4 @@
-// Morning runs of the reminder: five runs a day (06:13 to 08:43 UTC) must send exactly once, on the first run,
+// Morning runs of the reminder (news or, on its morning, the monthly feedback message): five runs a day (06:13 to 08:43 UTC) must send exactly once, on the first run,
 // sharing notify/sent.log like the serialized GitHub runs do; nothing on Shabbat or Yom Tov; a run that starts
 // later than 2 hours before sunset in Dubai goes to Telegram only (an English alert, then the message itself); a failed
 // send is retried by the next run, and a run restarted by the 12:13 Vercel check posts once, the 12:43 run then stops. Also checks the workflow file: the five times, one-at-a-time runs, fresh checkout, safe push.
@@ -23,7 +23,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
     const results = [];
     for (const [h, m] of RUNS) results.push(await quiet(() => N.run({ today: f, now: at(f, h, m), log,
       sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) })));
-    const msg = N.buildMessage(f), d = iso(f);
+    const msg = N.morningMessage(f), d = iso(f);
     if (isShabbatOrYomTov(f)) R.check(results.every(r => r === "none") && !group.length && !tg.length, `${d}: posted on Shabbat/Yom Tov ${results}`);
     if (msg) {
       R.check(results.join() === "sent,already,already,already,already" && group.length === 1 && group[0] === msg.text && !tg.length,
@@ -37,7 +37,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
   // 2. The cutoff: 2 hours before Dubai sunset (Hebcal), checked on every day that has a message
   let lateChecked = 0;
   for (let f = start; f <= end; f++) {
-    if (!N.buildMessage(f)) continue;
+    if (!N.morningMessage(f)) continue;
     const g = dateFromFixed(f);
     const sunset = new H.Zmanim(new H.GeoLocation(null, 25.2167, 55.2833, 0, "Asia/Dubai"), g, false).sunset().getTime();
     const cutoff = N.lateCutoff(f).getTime();
@@ -45,7 +45,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
     for (const [delta, expectLate] of [[-60000, false], [0, true], [60000, true]]) {
       const log = path.join(dir, `late-${f}-${delta}`), group = [], tg = [];
       const r = await quiet(() => N.run({ today: f, now: cutoff + delta, log, sendGroup: async t => group.push(t), sendLate: async t => tg.push(t) }));
-      const text = N.buildMessage(f).text;
+      const text = N.morningMessage(f).text;
       R.check(expectLate ? r === "late" && !group.length && tg.length === 1 && tg[0] === text
                          : r === "sent" && group.length === 1 && !tg.length, `${iso(f)} cutoff ${delta / 60000} min: ${r}, group ${group.length}, telegram ${tg.length}`);
       if (expectLate) {                              // the late Telegram send is logged, so later runs stop too
@@ -58,7 +58,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
 
   // 3. A failed send is not logged, so the next run tries again (and sends only once)
   {
-    const f = start + [...Array(30).keys()].find(k => N.buildMessage(start + k)), log = path.join(dir, "fail"), group = [];
+    const f = start + [...Array(30).keys()].find(k => N.morningMessage(start + k)), log = path.join(dir, "fail"), group = [];
     let fail = true;
     const sendGroup = async t => { if (fail) { fail = false; throw new Error("network"); } group.push(t); };
     let first = "ok"; try { await quiet(() => N.run({ today: f, now: at(f, 6, 13), log, sendGroup })); } catch (e) { first = "threw"; }
@@ -68,7 +68,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
   }
   // 3b. Every morning run fails; the run the 12:13 Vercel check restarts posts once; the 12:43 run finds sent.log
   {
-    const f = start + [...Array(30).keys()].find(k => N.buildMessage(start + k)), log = path.join(dir, "restart"), group = [];
+    const f = start + [...Array(30).keys()].find(k => N.morningMessage(start + k)), log = path.join(dir, "restart"), group = [];
     let down = true;
     const sendGroup = async t => { if (down) throw new Error("network"); group.push(t); };
     const failed = [];

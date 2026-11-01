@@ -20,7 +20,7 @@ function loadPage() {
     return {PEOPLE, hebrewFromFixed, fixedFromHebrew, fixedFromYMD, birthdayInYear, roshChodesh, hLeap, compute, CITIES, ISRAEL_ZONES,
             holidaySpans, spanTimes, bannersAt, shabbatAt, parshaFor, PARSHA_TABLE, PARSHA_NAMES,
             upcomingBirthdays, upcomingText, monthlyReading, weeklyReading, readingChapters, rangeText, readingInfo, hMonthLength, weekday, T, LANGS, CITY_NAMES, GROUP_NAMES, HOLIDAY_NAMES, cityName, personName, hebDate, gem,
-            sunsetOn, candlesOn, havdalahOn, fastEndOn, dawnOn,
+            sunsetOn, candlesOn, havdalahOn, fastEndOn, dawnOn, omerAt, omerDay, omerHe, omerRu, OMER_BLESSING,
             place(tz){ const [lat, lon, name] = CITIES[tz]; return {lat, lon, name, israel: ISRAEL_ZONES.has(tz), candleMins: CANDLE_MINS[tz] || 18}; },
             setToday(f){ hebToday = () => ({fixed: f, evening: false}); }};`)();
 }
