@@ -1,0 +1,78 @@
+name: Admin alerts (daily check, private Telegram only)
+
+# Started every day at 08:13 UTC (12:13 Dubai) by the Vercel cron in tehilim-trigger (/api/check), which first asks
+# GitHub whether notify.yml succeeded today, starts it once more if not, and reads the expiry date of its own GitHub
+# token. This run sends the admin, in the private Telegram chat only: "no successful run today", the token expiry
+# warning (30 and 7 days before), every 10 days "open the bot's WhatsApp", and on Sundays the week's summary.
+# notify/alerts.log keeps each alert to once per problem per day.
+on:
+  workflow_dispatch:
+    inputs:
+      norun:
+        description: "1 = notify.yml has not succeeded today"
+        default: "0"
+      retried:
+        description: "1 = notify.yml was started once more"
+        default: "0"
+      token_expires:
+        description: "github-authentication-token-expiration of the trigger token"
+        default: ""
+      mode:
+        description: "normal / dry-run"
+        default: "normal"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: tehilim-alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check and alert
+        env:
+          TZ: Asia/Dubai
+          GITHUB_TOKEN: ${{ github.token }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ADMIN_TG_CHAT_ID: ${{ secrets.ADMIN_TG_CHAT_ID }}
+          WA_GROUP_ID: ${{ secrets.WA_GROUP_ID }}
+          NORUN: ${{ inputs.norun }}
+          RETRIED: ${{ inputs.retried }}
+          TOKEN_EXPIRES: ${{ inputs.token_expires }}
+          DRY_RUN: ${{ inputs.mode == 'dry-run' && '1' || '0' }}
+        run: node notify/alerts.js daily
+      - name: Save the alerts log
+        run: |
+          if [ -n "$(git status --porcelain notify/alerts.log)" ]; then
+            git config user.name "tehilim-bot"
+            git config user.email "tehilim-bot@users.noreply.github.com"
+            git add notify/alerts.log
+            git commit -m "Alerts $(TZ=Asia/Dubai date +%F)"
+            for i in 1 2 3; do
+              git pull --rebase -q origin "$GITHUB_REF_NAME" && git push -q origin "HEAD:$GITHUB_REF_NAME" && exit 0
+              sleep 10
+            done
+            echo "Could not save notify/alerts.log"; exit 1
+          fi
+      - name: Alert the admin that a step failed
+        if: failure()
+        env:
+          TZ: Asia/Dubai
+          GITHUB_TOKEN: ${{ github.token }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ADMIN_TG_CHAT_ID: ${{ secrets.ADMIN_TG_CHAT_ID }}
+          WA_GROUP_ID: ${{ secrets.WA_GROUP_ID }}
+        run: node notify/alerts.js run-failed

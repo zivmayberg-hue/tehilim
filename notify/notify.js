@@ -392,6 +392,9 @@ async function run({ today, now, dry = false, test = false, log = LOG, sendGroup
 
 async function main() {
   const now = process.env.NOW ? Date.parse(process.env.NOW) : Date.now();
+  // Перед отправкой: подключён ли WhatsApp бота. Если нет, оповещение админу (раз в день); запасной путь в Telegram не меняется
+  try { await require("./alerts").whatsappCheck(require("./alerts").context({ now })); }
+  catch (e) { console.log("Проверка WhatsApp не удалась:", e.message); }
   await run({ today: todayFixed(now), now, dry: process.env.DRY_RUN === "1", test: process.env.TEST_MESSAGE === "1" });
 }
 

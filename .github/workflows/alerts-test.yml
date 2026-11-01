@@ -1,0 +1,47 @@
+# TEMPORARY, branch only: real test alerts to the admin's private chat. Removed before merging.
+name: Alerts test (temporary)
+on:
+  push:
+    branches: [phase5-alerts]
+    paths: [".github/workflows/alerts-test.yml"]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Telegram chat type (only the type is printed)
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: curl -s --retry 3 "https://api.telegram.org/bot$TG_TOKEN/getChat?chat_id=$TG_CHAT_ID" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log("ok:",j.ok,"type:",j.result&&j.result.type);if(!j.result||j.result.type!=="private")process.exit(1)})'
+      - name: Whapi connection status (only the status is printed)
+        env:
+          WA_TOKEN: ${{ secrets.WA_TOKEN }}
+        run: curl -s --retry 3 -H "Authorization: Bearer $WA_TOKEN" https://gate.whapi.cloud/health | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log("status:",JSON.stringify(JSON.parse(s).status))}catch{console.log("not JSON")}})'
+      - name: One test alert of each kind
+        env:
+          TZ: Asia/Dubai
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ADMIN_TG_CHAT_ID: ${{ secrets.ADMIN_TG_CHAT_ID }}
+          WA_GROUP_ID: ${{ secrets.WA_GROUP_ID }}
+        run: node notify/alerts.js test
+      - name: Проверка оповещения о сбое (этот шаг падает нарочно)
+        run: exit 1
+      - name: Alert the admin that a step failed
+        if: failure()
+        env:
+          TZ: Asia/Dubai
+          GITHUB_TOKEN: ${{ github.token }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ADMIN_TG_CHAT_ID: ${{ secrets.ADMIN_TG_CHAT_ID }}
+          WA_GROUP_ID: ${{ secrets.WA_GROUP_ID }}
+        run: node notify/alerts.js run-failed
