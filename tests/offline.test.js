@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const { chromium } = require("playwright");
-const { reporter } = require("./lib");
+const { reporter, API_HOST, fakeApi, newCtx } = require("./lib");
 
 const R = reporter("Offline: service worker keeps the page, updates load with the network");
 const ROOT = path.join(__dirname, "..");
@@ -25,7 +25,7 @@ const server = http.createServer((req, res) => {
   await new Promise(r => server.listen(0, "localhost", r));
   const BASE = `http://localhost:${server.address().port}/tehilim/`;
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, timezoneId: "Asia/Dubai", locale: "ru-RU" });
+  const ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, timezoneId: "Asia/Dubai", locale: "ru-RU" });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, contentType: "text/css", body: "" }));
   const page = await ctx.newPage(), errors = [];
   page.on("pageerror", e => errors.push(e.message));

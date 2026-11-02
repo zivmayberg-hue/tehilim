@@ -7,7 +7,7 @@
 "use strict";
 const path = require("path");
 const { chromium } = require("playwright");
-const { H, loadPage, fixedFromDate, birthFixed, hebcalBirthday, hd, reporter, fulfillSite } = require("./lib");
+const { H, loadPage, fixedFromDate, birthFixed, hebcalBirthday, hd, reporter, fulfillSite, API_HOST, fakeApi, newCtx } = require("./lib");
 
 const R = reporter("Page in headless Chromium (iPhone/iPad, light/dark, 3 cities)");
 const URL = "file://" + path.join(__dirname, "..", "index.html");
@@ -61,14 +61,14 @@ const EXPECT = {
 };
 
 async function newContext(browser, device, scheme, tz) {
-  const ctx = await browser.newContext({ ...DEVICES[device], colorScheme: scheme, timezoneId: tz, locale: "ru-RU" });
+  const ctx = await newCtx(browser, { ...DEVICES[device], colorScheme: scheme, timezoneId: tz, locale: "ru-RU" });
   ctx.external = [];
   await ctx.route("**/*", route => {
     const u = route.request().url();
     if (u.startsWith("file:")) return route.continue();
     ctx.external.push(u);
     if (u.startsWith("https://fonts.googleapis.com/")) return route.fulfill({ status: 200, contentType: "text/css", body: "" });
-    return route.abort();
+    return route.request().url().startsWith(API_HOST) ? fakeApi(route) : route.abort();
   });
   return ctx;
 }

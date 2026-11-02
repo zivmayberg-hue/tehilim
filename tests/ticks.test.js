@@ -6,7 +6,7 @@
 const path = require("path");
 const fs = require("fs");
 const { chromium } = require("playwright");
-const { H, loadPage, reporter, fulfillSite } = require("./lib");
+const { H, loadPage, reporter, fulfillSite, API_HOST, fakeApi, newCtx } = require("./lib");
 
 const R = reporter("Ticks, all-psalms view and upcoming birthdays in Chromium");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -26,7 +26,7 @@ function instant(tz, y, m, d, hh = 12, mm = 0) {
   return new Date(t);
 }
 async function newContext(browser, { device = "iPhone", scheme = "light", tz = "Asia/Dubai", noStorage = false } = {}) {
-  const ctx = await browser.newContext({ ...DEVICES[device], colorScheme: scheme, timezoneId: tz, locale: "ru-RU" });
+  const ctx = await newCtx(browser, { ...DEVICES[device], colorScheme: scheme, timezoneId: tz, locale: "ru-RU" });
   if (noStorage) await ctx.addInitScript(() => Object.defineProperty(window, "localStorage", { get() { throw new Error("storage disabled"); } }));
   await ctx.route("**/*", route => {
     const u = route.request().url();
@@ -34,7 +34,7 @@ async function newContext(browser, { device = "iPhone", scheme = "light", tz = "
     if (u.startsWith("https://fonts.googleapis.com/")) return route.fulfill({ status: 200, contentType: "text/css", body: "" });
     if (u.startsWith("https://cloud.umami.is/")) return route.fulfill({ status: 200, contentType: "application/javascript", body: "" });   // statistics: see stats.test.js
     if (u.startsWith("https://zivmayberg-hue.github.io/")) return fulfillSite(route, HTML);
-    return route.abort();
+    return route.request().url().startsWith(API_HOST) ? fakeApi(route) : route.abort();
   });
   return ctx;
 }

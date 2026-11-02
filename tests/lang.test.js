@@ -10,7 +10,7 @@
 "use strict";
 const path = require("path");
 const { chromium } = require("playwright");
-const { loadPage, fixedFromDate, todayDubai, endOfYear, reporter } = require("./lib");
+const { loadPage, fixedFromDate, todayDubai, endOfYear, reporter, API_HOST, fakeApi, newCtx } = require("./lib");
 
 const P = loadPage(), R = reporter("Languages: Russian, English, Hebrew (data and Chromium)");
 const URL = "file://" + path.join(__dirname, "..", "index.html");
@@ -49,11 +49,11 @@ const DEVICES = {
 const DATES = { "Hanukkah Friday": "2026-12-04T10:00:00Z", "10 Tevet": "2026-12-20T08:00:00Z", "Rosh Chodesh Kislev": "2026-11-11T08:00:00Z",
   "Purim 2027": "2027-03-23T08:00:00Z", "before Natalia's birthday": "2027-07-20T08:00:00Z" };
 async function newContext(browser, opts = {}) {
-  const ctx = await browser.newContext({ ...DEVICES[opts.device || "iPhone"], colorScheme: opts.scheme || "light", timezoneId: "Asia/Jerusalem", locale: opts.locale || "ru-RU" });
+  const ctx = await newCtx(browser, { ...DEVICES[opts.device || "iPhone"], colorScheme: opts.scheme || "light", timezoneId: "Asia/Jerusalem", locale: opts.locale || "ru-RU" });
   await ctx.route("**/*", r => { const u = r.request().url();
     if (u.startsWith("file:")) return r.continue();
     if (u.startsWith("https://fonts.googleapis.com/")) return r.fulfill({ status: 200, contentType: "text/css", body: "" });
-    return r.abort(); });
+    return r.request().url().startsWith(API_HOST) ? fakeApi(r) : r.abort(); });
   await ctx.addInitScript(() => {                    // a stand-in for the Wake Lock API that records what the page does
     window.__wake = [];
     Object.defineProperty(navigator, "wakeLock", { value: { request: async type => {

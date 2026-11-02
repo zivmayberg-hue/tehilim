@@ -153,6 +153,28 @@ h2{font-family:var(--ui);font-size:calc(15px * var(--scale));font-weight:600;col
 /* "Прочитано": tick button per card, calmer card when done; progress line; reader button; upcoming birthdays */
 .progress{margin:2px 4px 0;font-weight:700;font-size:calc(20px * var(--scale))}
 .progress.all{color:var(--bd-fg)}
+/* Кто читал сегодня (с сервера) и серия дней: одна тихая строка под счётом, пустая не видна */
+.who{margin:-8px 4px 0;color:var(--muted);font-size:calc(17px * var(--scale));line-height:1.35}
+.who:empty{display:none}
+.who span{display:block}
+.changeme{align-self:center;margin-top:6px;background:none;border:0;color:var(--muted);font:inherit;font-size:calc(15px * var(--scale));min-height:44px;padding:8px 18px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+/* «Кто читает?»: лист снизу, как в iOS; страница видна и затемнена */
+#sheet{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,.38);opacity:0;transition:opacity .25s}
+#sheet.on{opacity:1}
+.sheet-box{width:100%;max-width:620px;margin:0 auto;background:var(--bg);border-radius:24px 24px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.25);
+  padding:8px max(16px,env(safe-area-inset-left,0px)) calc(10px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+#sheet.on .sheet-box{transform:none}
+.grab{width:38px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 10px}
+.sheet-t{font-family:var(--display);font-weight:800;font-size:calc(27px * var(--scale));text-align:center;margin:0 0 12px;color:var(--fg)}
+.names{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.names button{min-height:60px;font-family:var(--display);font-size:calc(21px * var(--scale));font-weight:700;border:0;border-radius:18px;background:var(--num-bg);color:var(--num-fg);
+  padding:8px 6px;line-height:1.12;cursor:pointer;overflow-wrap:anywhere}
+.names button:focus-visible,.skip:focus-visible,.changeme:focus-visible{outline:3px solid var(--tint);outline-offset:2px}
+.skip{display:block;margin:6px auto 0;background:none;border:0;color:var(--muted);font:inherit;font-size:calc(16px * var(--scale));min-height:44px;padding:8px 22px;cursor:pointer}
+/* «Все псалмы прочитаны»: короткая плашка, исчезает сама */
+#toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;transition:opacity .3s,transform .3s;z-index:25;
+  padding:14px 22px;border-radius:22px;font-weight:700;font-size:calc(19px * var(--scale));box-shadow:var(--shadow);width:max-content;max-width:calc(100% - 32px);text-align:center;pointer-events:none;background:var(--num-bg);color:var(--num-fg)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
 .tick{grid-column:1/-1;margin-top:8px;font-weight:700;font-size:calc(21px * var(--scale));min-height:58px;padding:12px 18px;
   border-radius:999px;cursor:pointer;background:transparent;color:var(--tint-fg);border:2px solid var(--tint)}
 .tick.on{background:var(--bd-bg);color:var(--bd-fg);border-color:transparent}
@@ -191,6 +213,7 @@ h2{font-family:var(--ui);font-size:calc(15px * var(--scale));font-weight:600;col
     <p class="today" id="today"></p>
   </header>
   <p class="progress" id="progress"></p>
+  <p class="who" id="who"></p>
   <div id="shabbat" hidden></div>
   <div id="banners"></div>
   <div id="rc" class="rc glass" hidden><p class="rc-t" id="rct"></p><p class="rc-s" id="rcs"></p><button class="open" id="rcbtn" type="button">Открыть Псалом 104</button></div>
@@ -199,7 +222,12 @@ h2{font-family:var(--ui);font-size:calc(15px * var(--scale));font-weight:600;col
   <div id="daily"></div>
   <div id="upcoming" class="rc glass"></div>
   <button class="open openall" id="openall" type="button">Открыть все псалмы подряд</button>
+  <button class="changeme" id="changeme" type="button">Сменить имя</button>
 </div>
+<div id="sheet" hidden><div class="sheet-box" role="dialog" aria-modal="true" aria-labelledby="sheet-t" lang="ru" dir="ltr">
+  <div class="grab" aria-hidden="true"></div><p class="sheet-t" id="sheet-t">Кто читает?</p><div class="names" id="names"></div>
+  <button class="skip" id="skip" type="button">Пропустить</button></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
 <div id="reader" hidden>
   <div class="rbar"><button class="back" id="back" type="button">‹ Назад</button><div class="rtitle" id="rtitle"></div></div>
   <div class="rbody" id="rbody"><div class="rinner" id="rinner"></div></div>
@@ -381,6 +409,8 @@ const T = {
     back:"‹ Назад", loading:"Загрузка…", loadFail:"Не удалось загрузить текст. Проверьте интернет и откройте снова.",
     allTitle:"Все псалмы семьи", psalmWord:"Псалом", psalm:n => `Псалом ${n}`, open:n => `Открыть Псалом ${n}`,
     tickOff:"Прочитал", tickOn:"✓ Прочитано", readOff:"Прочитал ✓",
+    changeMe:"Сменить имя", whoToday:"Сегодня: ", monthTick:"месяц ✓", weekTick:"неделя ✓",
+    streak:(name, n) => `${name} читает ${n} ${daysWord(n)} подряд 🔥`, allDone:"Спасибо! Все псалмы на сегодня прочитаны 🤍",
     left:n => `Осталось: ${n}` + (n ? "" : ". Все псалмы на сегодня прочитаны 🤍"),
     progress:(n, N) => n === N ? "Все псалмы на сегодня прочитаны 🤍" : `Прочитано ${n} из ${N}`,
     greet:{shabbat:"Шабат шалом", night:"Доброй ночи", morning:"Доброе утро", day:"Добрый день", evening:"Добрый вечер"},
@@ -426,6 +456,8 @@ const T = {
     back:"‹ Back", loading:"Loading…", loadFail:"Could not load the text. Check the internet connection and open it again.",
     allTitle:"All the family's psalms", psalmWord:"Psalm", psalm:n => `Psalm ${n}`, open:n => `Open Psalm ${n}`,
     tickOff:"Mark as read", tickOn:"✓ Read", readOff:"I read it ✓",
+    changeMe:"Change name", whoToday:"Today: ", monthTick:"month ✓", weekTick:"week ✓",
+    streak:(name, n) => `${name}: ${n} days in a row 🔥`, allDone:"Thank you! All of today's psalms are read 🤍",
     left:n => `Left: ${n}` + (n ? "" : ". All of today's psalms are read 🤍"),
     progress:(n, N) => n === N ? "All of today's psalms are read 🤍" : `Read ${n} of ${N}`,
     greet:{shabbat:"Shabbat shalom", night:"Good night", morning:"Good morning", day:"Good afternoon", evening:"Good evening"},
@@ -471,6 +503,8 @@ const T = {
     back:"‹ חזרה", loading:"טוען…", loadFail:"לא ניתן לטעון את הטקסט. בדקו את החיבור לאינטרנט ופתחו שוב.",
     allTitle:"כל פרקי המשפחה", psalmWord:"פרק", psalm:n => `פרק ${n}`, open:n => `לקריאת פרק ${n}`,
     tickOff:"קראתי", tickOn:"✓ נקרא", readOff:"קראתי ✓",
+    changeMe:"החלפת שם", whoToday:"היום: ", monthTick:"חודש ✓", weekTick:"שבוע ✓",
+    streak:(name, n) => `${name}: ${n} ימים ברצף 🔥`, allDone:"תודה! כל הפרקים של היום נקראו 🤍",
     left:n => `נשארו: ${n}` + (n ? "" : ". כל הפרקים של היום נקראו 🤍"),
     progress:(n, N) => n === N ? "כל הפרקים של היום נקראו 🤍" : `נקראו ${n} מתוך ${N}`,
     greet:{shabbat:"שבת שלום", night:"לילה טוב", morning:"בוקר טוב", day:"צהריים טובים", evening:"ערב טוב"},
@@ -939,6 +973,7 @@ function statsAllowed(){
   return true;
 }
 function stat(name, data){
+  ownStat(name, data);
   if (!statsQueue) return;
   const ev = [name, Object.assign({tz: TZ || "unknown"}, data)];
   if (window.umami && typeof window.umami.track === "function"){ try { window.umami.track(...ev); } catch(e){} }
@@ -962,6 +997,117 @@ function startStats(){
   document.head.appendChild(s);
 }
 
+/* ===== КТО ЧИТАЕТ: личные ссылки ?me=, лист «Кто читает?», кто читал сегодня, своя статистика =====
+   Человек выбирается один раз на устройстве (личная ссылка ?me=aron или лист), хранится только здесь (localStorage).
+   Отметки остаются на устройстве, как раньше; у названного человека они ещё уходят на сервер (tehilim-trigger, база
+   Upstash Redis), чтобы под счётом была строка «Сегодня: Арон 12/12 ✓, Дафна 5/12» и серия дней. Отметки гостя не
+   уходят никуда. Своя статистика (открытия страницы и псалмов) только на настоящем сайте, как Umami.
+   Всё в фоне: без интернета или без сервера страница работает как раньше, очередь уйдёт позже. */
+const ME = {aron:["Арон","ru"], natalia:["Наталья","ru"], yana:["Яна","ru"], ziv:["Зив","en"], dafna:["Дафна","en"],
+            israel:["Исраэль Авия","en"], polina:["Полина","he"], moshe:["Моше","he"]};
+const meLabel = k => { const p = PEOPLE.find(x => x.name === ME[k][0]); return ME[k][1] === "ru" ? p.name : p[ME[k][1]]; };   // имя на своём языке
+const API = "https://tehilim-trigger.vercel.app/api/family";
+const ME_KEY = PREVIEW ? "tehilim-preview-me" : "tehilim-me", DEV_KEY = PREVIEW ? "tehilim-preview-dev" : "tehilim-dev";
+const OUTBOX_KEY = PREVIEW ? "tehilim-preview-outbox" : "tehilim-outbox";
+let meMem = null, outboxMem = [], whoData = null, syncTimer = null, syncing = false;
+function getMe(){ try { const v = localStorage.getItem(ME_KEY); if (v === "guest" || ME[v]) return v; } catch(e){} return meMem; }
+// Новый человек на устройстве: язык по умолчанию для него, сегодняшние отметки уходят на сервер под его именем
+function setMe(v){
+  const was = getMe();
+  meMem = v; try { localStorage.setItem(ME_KEY, v); } catch(e){}
+  if (ME[v] && v !== was){ for (const name of readToday()) queueTick(name, true, hebToday().fixed); }
+}
+// Сервер только с настоящего сайта и с сайта предпросмотра (отдельные данные), не из файла и не в тестах без адреса
+const syncNs = () => typeof location !== "undefined" && location.hostname === "zivmayberg-hue.github.io"
+  ? (location.pathname.startsWith("/tehilim/") ? "live" : PREVIEW ? "preview" : null) : null;
+const fakeTime = () => FIXED_NOW !== null || (PREVIEW && new URLSearchParams(location.search).has("tz"));   // ?date/?time/?tz: ничего не записываем
+let ownStats = false;                                                   // как Umami: только настоящий сайт, без ?date, не при ?stats=off
+function deviceId(){
+  try { let d = localStorage.getItem(DEV_KEY); if (!d){ d = [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, "0")).join(""); localStorage.setItem(DEV_KEY, d); } return d; }
+  catch(e){ return "nostorage"; }
+}
+function readOutbox(){ try { const o = JSON.parse(localStorage.getItem(OUTBOX_KEY) || "null"); if (Array.isArray(o)) return o; } catch(e){} return outboxMem; }
+function writeOutbox(o){ outboxMem = o; try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(o)); } catch(e){} }
+function queue(ev){
+  if (!syncNs() || fakeTime()) return;
+  const me = getMe();
+  writeOutbox([...readOutbox(), {...ev, p: ME[me] ? me : "guest", l: LANG, t: Date.now()}].slice(-300));
+  clearTimeout(syncTimer); syncTimer = setTimeout(sync, 700);
+}
+function queueTick(item, on, f){ if (ME[getMe()]) queue({k:"tick", x:item, on: on ? 1 : 0, f}); }
+function ownStat(name, data){
+  if (!ownStats) return;
+  if (name === "psalm") queue({k:"psalm", x:data.chapter, f:hebToday().fixed});
+  else if (name === "daily") queue({k:"daily", x:data.kind, f:hebToday().fixed});
+  else if (name === "all") queue({k:"all", f:hebToday().fixed});
+}
+// Отправить очередь и получить «кто читал сегодня»; не дольше 4 секунд, любые ошибки молча
+async function sync(){
+  const ns = syncNs();
+  if (!ns || syncing) return;
+  syncing = true;
+  const q = readOutbox(), me = getMe(), f = hebToday().fixed;
+  try {
+    const ctl = typeof AbortController === "function" ? new AbortController() : null, timer = setTimeout(() => ctl && ctl.abort(), 4000);
+    const r = await fetch(API, {method:"POST", headers:{"Content-Type":"text/plain"}, body: JSON.stringify({ns, dev: deviceId(), p: ME[me] ? me : "guest", f, q}),
+      signal: ctl ? ctl.signal : undefined, keepalive: q.length < 40});
+    clearTimeout(timer);
+    if (r.ok){
+      const d = await r.json();
+      writeOutbox(readOutbox().slice(q.length));                        // отправленное убираем, новое за это время остаётся
+      if (d && d.f === hebToday().fixed){ whoData = d; renderWho(); }
+    }
+  } catch(e){}
+  syncing = false;
+}
+// «Сегодня: Арон 12/12 ✓ месяц ✓, Дафна 5/12» и «Арон читает 23 дня подряд 🔥» (серия только своего человека, от 3 дней)
+function renderWho(){
+  const el = document.getElementById("who"); if (!el) return;
+  el.textContent = "";
+  const d = whoData && whoData.f === hebToday().fixed ? whoData : null;
+  if (!d) return;
+  const parts = Object.keys(ME).filter(k => d.today && d.today[k]).map(k => {
+    const x = d.today[k], N = PEOPLE.length;
+    return `${personName(LANG, ME[k][0])} ${x.n}/${N}${x.n >= N ? " ✓" : ""}${x.m ? " " + tr(LANG, "monthTick") : ""}${x.w ? " " + tr(LANG, "weekTick") : ""}`;
+  });
+  if (parts.length){ const s = document.createElement("span"); s.textContent = tr(LANG, "whoToday") + parts.join(", "); el.appendChild(s); }
+  const me = getMe();
+  if (ME[me] && d.streak >= 3){ const s = document.createElement("span"); s.textContent = tr(LANG, "streak", personName(LANG, ME[me][0]), d.streak); el.appendChild(s); }
+}
+let toastTimer = null;
+function showToast(text){
+  const t = document.getElementById("toast"); if (!t) return;
+  t.textContent = text; t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 3500);
+}
+// Лист «Кто читает?»: один раз на устройстве, пока никто не выбран; не в читалке, не поверх баннера, не на ?date
+function openSheet(){
+  const sh = document.getElementById("sheet"), names = document.getElementById("names");
+  names.innerHTML = "";
+  for (const k of Object.keys(ME)){
+    const b = document.createElement("button"); b.type = "button"; b.textContent = meLabel(k); b.lang = ME[k][1]; b.dir = ME[k][1] === "he" ? "rtl" : "ltr";
+    b.addEventListener("click", () => choose(k)); names.appendChild(b);
+  }
+  sh.hidden = false; document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => requestAnimationFrame(() => sh.classList.add("on")));
+}
+function closeSheet(){
+  const sh = document.getElementById("sheet"); sh.classList.remove("on");
+  document.body.style.overflow = "";
+  setTimeout(() => { sh.hidden = true; }, 320);
+}
+function choose(k){
+  setMe(k);
+  if (ME[k]){ LANG = ME[k][1]; try { localStorage.setItem(LANG_KEY, LANG); } catch(e){} }
+  closeSheet(); applyLang(); sync();
+}
+function sheetAllowed(){
+  if (getMe() || readerOpen() || fakeTime()) return false;
+  try { localStorage.setItem("tehilim-probe", "1"); localStorage.removeItem("tehilim-probe"); } catch(e){ return false; }   // без памяти лист приходил бы каждый раз
+  const busy = !document.getElementById("shabbat").hidden || document.getElementById("banners").children.length || !document.getElementById("rc").hidden;
+  return !busy;
+}
+
 /* ===== ОТМЕТКИ «ПРОЧИТАНО» =====
    Каждый читает свой псалом отдельно, даже если номер совпадает. Отметки хранятся только на этом устройстве
    (localStorage) по еврейской дате: на закате в городе телефона начинается новый день, и отметки пустые.
@@ -976,10 +1122,12 @@ function readToday(){
   return t.read.slice();
 }
 function setRead(name, on){
-  const day = hebToday().fixed, read = readToday().filter(x => x !== name);
+  const day = hebToday().fixed, before = PEOPLE.every(p => isRead(p.name)), read = readToday().filter(x => x !== name);
   if (on){ read.push(name); stat("read"); }
   ticksMem = {day, read};
   try { localStorage.setItem(TICKS_KEY, JSON.stringify(ticksMem)); } catch(e){}
+  queueTick(name, on, day);
+  if (on && !before && PEOPLE.every(p => isRead(p.name))) showToast(tr(LANG, "allDone"));
 }
 const isRead = name => readToday().includes(name);
 function updateLeft(){
@@ -1213,7 +1361,9 @@ function render(){
   const dow = lp.dow, hr = lp.h;
   const shabbat = (dow === 5 && ht.evening) || (dow === 6 && !ht.evening);
   const gk = shabbat ? "shabbat" : hr < 5 ? "night" : hr < 12 ? "morning" : hr < 17 ? "day" : "evening";
-  document.getElementById("greet").textContent = `${T[LANG].greet[gk]}, ${personName(LANG, "Арон")}`;
+  // Имя в приветствии: выбранный человек; гость без имени; пока никто не выбран, как раньше (Арон)
+  const me = getMe(), gname = me === "guest" ? "" : personName(LANG, ME[me] ? ME[me][0] : "Арон");
+  document.getElementById("greet").textContent = gname ? `${T[LANG].greet[gk]}, ${gname}` : T[LANG].greet[gk];
   const rc = roshChodesh(th), box = document.getElementById("rc");
   if (rc && rc.kind === "rc"){                 // Рош а-Шана показывает баннер праздника
     box.hidden = false;
@@ -1228,6 +1378,8 @@ function render(){
   const nRead = PEOPLE.filter(p => isRead(p.name)).length, pr = document.getElementById("progress");
   pr.textContent = tr(LANG, "progress", nRead, PEOPLE.length);
   pr.classList.toggle("all", nRead === PEOPLE.length);
+  renderWho();
+  document.getElementById("changeme").textContent = tr(LANG, "changeMe");
   const ub = document.getElementById("upcoming"); ub.innerHTML = "";
   ub.appendChild(card(tr(LANG, "upTitle")).firstChild);
   for (const u of upcomingBirthdays(ht.fixed, 3)){
@@ -1291,6 +1443,10 @@ function render(){
 const LANG_KEY = PREVIEW ? "tehilim-preview-lang" : "tehilim-lang";
 let LANG = "ru", langFromUrl = null;
 try { const s = localStorage.getItem(LANG_KEY); if (LANGS.includes(s)) LANG = s; } catch(e){}
+// Личная ссылка ?me=aron: человек и его язык без вопросов, запоминается; ?me= убирается из адреса
+{ const u = new URL(location.href), k = (u.searchParams.get("me") || "").toLowerCase();
+  if (ME[k]){ setMe(k); LANG = ME[k][1]; try { localStorage.setItem(LANG_KEY, LANG); } catch(e){} }
+  if (u.searchParams.has("me")){ u.searchParams.delete("me"); try { history.replaceState(null, "", u.pathname + (u.search ? u.search : "") + u.hash); } catch(e){} } }
 { const q = new URLSearchParams(location.search).get("lang");
   if (LANGS.includes(q)){ LANG = langFromUrl = q; try { localStorage.setItem(LANG_KEY, q); } catch(e){} } }
 function applyLang(){
@@ -1320,6 +1476,12 @@ btn.addEventListener("click", ()=>setBig(!document.body.classList.contains("big"
 try{ setBig(localStorage.getItem("big")==="1"); }catch(e){ setBig(false); }
 applyLang();
 startStats();
+ownStats = statsAllowed();
+if (ownStats) queue({k:"open", f:hebToday().fixed}); else sync();
+document.getElementById("changeme").addEventListener("click", openSheet);
+document.getElementById("skip").addEventListener("click", () => { setMe("guest"); closeSheet(); render(); });
+if (sheetAllowed()) setTimeout(() => { if (sheetAllowed()) openSheet(); }, 600);
+window.addEventListener("online", sync);
 if (langFromUrl) stat("lang", {lang: langFromUrl});
 // Обновляем страницу, когда меняется день, наступает закат или появляется/исчезает карточка
 const dayKey = () => { const t = now(), p = partsOf(t), f = fixedFromYMD(p.y, p.m0, p.d), P = place();
@@ -1329,6 +1491,9 @@ function refreshIfNewDay(){ const d = dayKey(); if (d !== lastDay){ lastDay = d;
 document.addEventListener("visibilitychange", ()=>{ if (!document.hidden) refreshIfNewDay(); });
 window.addEventListener("pageshow", refreshIfNewDay);
 setInterval(refreshIfNewDay, 60*1000);
+// «Кто читал сегодня» обновляется, когда страницу открывают снова, и раз в 2 минуты, пока она на экране
+document.addEventListener("visibilitychange", ()=>{ if (!document.hidden) sync(); });
+setInterval(()=>{ if (!document.hidden) sync(); }, 120*1000);
 /* Без интернета: service worker (sw.js) хранит страницу; с интернетом всегда берёт свежую версию */
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost"))
   window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
