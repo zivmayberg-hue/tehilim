@@ -1003,8 +1003,9 @@ function startStats(){
    Upstash Redis), чтобы под счётом была строка «Сегодня: Арон 12/12 ✓, Дафна 5/12» и серия дней. Отметки гостя не
    уходят никуда. Своя статистика (открытия страницы и псалмов) только на настоящем сайте, как Umami.
    Всё в фоне: без интернета или без сервера страница работает как раньше, очередь уйдёт позже. */
-const ME = {aron:["Арон","ru"], natalia:["Наталья","ru"], yana:["Яна","ru"], ziv:["Зив","en"], dafna:["Дафна","en"],
-            israel:["Исраэль Авия","en"], polina:["Полина","he"], moshe:["Моше","he"]};
+// порядок везде один (лист, строка «Сегодня», недельная сводка): Арон, Наталья, Полина, Дафна, Зив, Яна, Моше, Исраэль Авия
+const ME = {aron:["Арон","ru"], natalia:["Наталья","ru"], polina:["Полина","he"], dafna:["Дафна","en"], ziv:["Зив","en"],
+            yana:["Яна","ru"], moshe:["Моше","he"], israel:["Исраэль Авия","en"]};
 const meLabel = k => { const p = PEOPLE.find(x => x.name === ME[k][0]); return ME[k][1] === "ru" ? p.name : p[ME[k][1]]; };   // имя на своём языке
 const API = "https://tehilim-trigger.vercel.app/api/family";
 const ME_KEY = PREVIEW ? "tehilim-preview-me" : "tehilim-me", DEV_KEY = PREVIEW ? "tehilim-preview-dev" : "tehilim-dev";
@@ -1104,8 +1105,7 @@ function choose(k){
 function sheetAllowed(){
   if (getMe() || readerOpen() || fakeTime()) return false;
   try { localStorage.setItem("tehilim-probe", "1"); localStorage.removeItem("tehilim-probe"); } catch(e){ return false; }   // без памяти лист приходил бы каждый раз
-  const busy = !document.getElementById("shabbat").hidden || document.getElementById("banners").children.length || !document.getElementById("rc").hidden;
-  return !busy;
+  return true;   // и поверх карточек Шабата, праздника, Омера и Рош Ходеша: лист лежит над страницей
 }
 
 /* ===== ОТМЕТКИ «ПРОЧИТАНО» =====
@@ -1362,8 +1362,8 @@ function render(){
   const shabbat = (dow === 5 && ht.evening) || (dow === 6 && !ht.evening);
   const gk = shabbat ? "shabbat" : hr < 5 ? "night" : hr < 12 ? "morning" : hr < 17 ? "day" : "evening";
   // Имя в приветствии: выбранный человек; гость без имени; пока никто не выбран, как раньше (Арон)
-  const me = getMe(), gname = me === "guest" ? "" : personName(LANG, ME[me] ? ME[me][0] : "Арон");
-  document.getElementById("greet").textContent = gname ? `${T[LANG].greet[gk]}, ${gname}` : T[LANG].greet[gk];
+  const me = getMe(), gname = ME[me] ? personName(LANG, ME[me][0]) : "";   // имя ещё не выбрано или «Пропустить»: без имени
+  document.getElementById("greet").textContent = gname ? `${T[LANG].greet[gk]}, ${gname}` : `${T[LANG].greet[gk]}!`;
   const rc = roshChodesh(th), box = document.getElementById("rc");
   if (rc && rc.kind === "rc"){                 // Рош а-Шана показывает баннер праздника
     box.hidden = false;

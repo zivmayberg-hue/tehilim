@@ -2,7 +2,7 @@
 // in tehilim-trigger, tested there with an in-memory Redis):
 // - personal links ?me= for all 8 names: name, language, greeting, link removed from the address bar, remembered;
 // - the "Кто читает?" sheet: once on a fresh device, never again after a choice or "Пропустить", never inside the
-//   reader, over a banner or on ?date links, "Сменить имя" reopens it; it fits the smallest and largest iPhone,
+//   reader, on ?date links or without storage (but over the Shabbat card), "Сменить имя" reopens it; it fits the smallest and largest iPhone,
 //   light and dark, normal and "Крупнее";
 // - Aron's own device (ticks, "Крупнее", Russian) opened via ?me=aron: no sheet, everything kept, today's ticks sent;
 // - ticks from two devices on a third, the offline queue sent later, the API down or hanging (no errors, no delay),
@@ -24,7 +24,7 @@ const HTML = fs.readFileSync(path.join(ROOT, "index.html"));
 let OLD = null; try { OLD = execFileSync("git", ["show", "origin/main:index.html"], { cwd: ROOT }); } catch (e) {}
 const ME = { aron: ["Арон", "ru", "Aron"], natalia: ["Наталья", "ru"], yana: ["Яна", "ru"], ziv: ["Зив", "en", "Ziv"], dafna: ["Дафна", "en", "Dafna"],
   israel: ["Исраэль Авия", "en", "Israel Aviah"], polina: ["Полина", "he", "פולינה"], moshe: ["Моше", "he", "משה"] };
-const SHEET = ["Арон", "Наталья", "Яна", "Ziv", "Dafna", "Israel Aviah", "פולינה", "משה"];
+const SHEET = ["Арон", "Наталья", "פולינה", "Dafna", "Ziv", "Яна", "משה", "Israel Aviah"];   // the order the user set
 const DEV = { "iPhone SE": { width: 320, height: 568 }, "iPhone SE 3": { width: 375, height: 667 }, "iPhone 16 Pro Max": { width: 440, height: 956 },
   iPad: { width: 820, height: 1180 } };
 const PREV = "https://zivmayberg-hue.github.io/tehilim-preview/", LIVE = "https://zivmayberg-hue.github.io/tehilim/";
@@ -95,7 +95,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const m = await page.evaluate(() => {
       const box = document.querySelector(".sheet-box").getBoundingClientRect(), bs = [...document.querySelectorAll("#names button")];
       return { up: !document.getElementById("sheet").hidden, top: box.top, bottom: box.bottom, vh: innerHeight, title: document.getElementById("sheet-t").textContent,
-        names: bs.map(b => b.textContent), minH: Math.min(...bs.map(b => b.getBoundingClientRect().height)), font: parseFloat(getComputedStyle(bs[0]).fontSize),
+        greet: document.getElementById("greet").textContent, names: bs.map(b => b.textContent), minH: Math.min(...bs.map(b => b.getBoundingClientRect().height)), font: parseFloat(getComputedStyle(bs[0]).fontSize),
         over: bs.some(b => b.scrollWidth > b.clientWidth + 1), skip: document.getElementById("skip").textContent, scroll: document.querySelector(".sheet-box").scrollHeight > document.querySelector(".sheet-box").clientHeight + 1,
         dim: getComputedStyle(document.getElementById("sheet")).backgroundColor };
     });
@@ -103,6 +103,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     R.check(m.up && m.title === "Кто читает?" && JSON.stringify(m.names) === JSON.stringify(SHEET) && m.skip === "Пропустить", `${tag}: sheet ${JSON.stringify(m)}`);
     R.check(m.top > 0 && m.bottom <= m.vh + 0.5 && !m.scroll && m.minH >= 60 && m.font >= 20 && !m.over, `${tag}: does not fit ${JSON.stringify(m)}`);
     R.check(/rgba\(0, 0, 0, 0\.3/.test(m.dim), `${tag}: page not dimmed behind (${m.dim})`);
+    R.check(/^[^,]+!$/.test(m.greet), `${tag}: greeting before a choice has no name: "${m.greet}"`);
     R.check(!errors.length, `${tag}: ${errors}`);
     sheetViews++;
     await ctx.close();
@@ -110,7 +111,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   {
     const { ctx, page } = await device(browser, server);
     await page.goto(PREV); await wait(1100);
-    await page.click("#names button:nth-child(5)"); await wait(500);          // Dafna
+    await page.click("#names button:nth-child(4)"); await wait(500);          // Dafna
     const a = await page.evaluate(() => ({ lang: document.documentElement.lang, greet: document.getElementById("greet").textContent, sheet: !document.getElementById("sheet").hidden }));
     R.check(a.lang === "en" && a.greet.endsWith(", Dafna") && !a.sheet, `choice: ${JSON.stringify(a)}`);
     await page.click(`[data-lang="he"]`); await page.reload(); await wait(1100);
@@ -118,12 +119,12 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     await page.click("#changeme"); await wait(500);
     R.check(await sheetUp(page), "Сменить имя reopens the sheet");
     await page.click("#skip"); await wait(500);
-    R.check(!(await sheetUp(page)) && !(await page.textContent("#greet")).includes(","), `skip = guest, no name: "${await page.textContent("#greet")}"`);
+    R.check(!(await sheetUp(page)) && /^[^,]+!$/.test(await page.textContent("#greet")), `skip = guest, no name: "${await page.textContent("#greet")}"`);
     await page.reload(); await wait(1100);
     R.check(!(await sheetUp(page)), "no sheet after skip");
     await ctx.close();
   }
-  {   // never on ?date links, never in the reader, never over a banner (Shabbat card on Friday), never without storage
+  {   // never on ?date links, never in the reader, never without storage; but over the Shabbat card, the sheet on top
     const a = await device(browser, server);
     await a.page.goto(`${PREV}?date=2026-11-04&time=12:00`); await wait(1100);
     R.check(!(await sheetUp(a.page)), "sheet on a ?date link");
@@ -135,7 +136,11 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const c = await device(browser, server);
     await c.page.clock.setFixedTime(new Date("2026-11-06T08:00:00Z"));   // Friday: the Shabbat card is on the page
     await c.page.goto(PREV); await wait(1100);
-    R.check(await c.page.evaluate(() => !document.getElementById("shabbat").hidden) && !(await sheetUp(c.page)), "sheet over a banner");
+    const top = await c.page.evaluate(() => { const b = document.querySelector("#names button").getBoundingClientRect();
+      return { card: !document.getElementById("shabbat").hidden, onTop: document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2) === document.querySelector("#names button") }; });
+    R.check(top.card && await sheetUp(c.page) && top.onTop, `the sheet on a Shabbat-card day ${JSON.stringify(top)}`);
+    await c.page.click("#names button:nth-child(1)"); await wait(500);
+    R.check(!(await sheetUp(c.page)) && await c.page.evaluate(() => !document.getElementById("shabbat").hidden), "after the choice the Shabbat card is there as before");
     await c.ctx.close();
     const d = await device(browser, server, { init: () => Object.defineProperty(window, "localStorage", { get() { throw new Error("no storage"); } }) });
     await d.page.goto(PREV); await wait(1100);
@@ -175,14 +180,15 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   // 4. Several devices, offline queue, API down or hanging, sunset, streak, "all read"
   {
     const s3 = fakeServer();
-    const A = await device(browser, s3), B = await device(browser, s3), C = await device(browser, s3);
-    await A.page.goto(`${PREV}?me=aron`); await B.page.goto(`${PREV}?me=dafna`); await C.page.goto(PREV); await wait(1100);
+    const A = await device(browser, s3), B = await device(browser, s3), C = await device(browser, s3), D = await device(browser, s3);
+    await A.page.goto(`${PREV}?me=aron`); await B.page.goto(`${PREV}?me=dafna`); await C.page.goto(PREV); await D.page.goto(`${PREV}?me=polina`); await wait(1100);
+    await (await D.page.$$("#out .card .tick"))[3].click(); await wait(1500); await D.ctx.close();
     await C.page.click("#skip");
     await (await A.page.$$("#out .card .tick"))[0].click(); await (await A.page.$$("#out .card .tick"))[1].click();
     await (await B.page.$$("#out .card .tick"))[2].click(); await (await B.page.$$("#daily .tick"))[0].click(); await wait(1500);
     await C.page.reload(); await wait(1500);
     const who = await C.page.textContent("#who");
-    R.check(who === "Сегодня: Арон 2/12, Дафна 1/12 месяц ✓", `third device: "${who}"`);
+    R.check(who === "Сегодня: Арон 2/12, Полина 1/12, Дафна 1/12 месяц ✓", `third device, names in the set order: "${who}"`);
     // offline: ticks queued, sent when the API answers again
     s3.mode = "down";
     await (await A.page.$$("#out .card .tick"))[2].click(); await wait(1500);
