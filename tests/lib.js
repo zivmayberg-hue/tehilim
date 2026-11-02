@@ -60,9 +60,28 @@ const fulfillSite = (route, html) => route.request().url().split("?")[0].endsWit
   ? route.fulfill({ status: 200, contentType: "application/javascript", body: SW_JS })
   : route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: html });
 
+// Phase 7: a device that already chose its person (Aron, as the page greeted before), so the "Кто читает?" sheet does
+// not cover the page in the older tests; and a stand-in for the tehilim-trigger API (no data, never the network).
+// people.test.js tests the sheet, the personal links and the API itself.
+const API_HOST = "https://tehilim-trigger.vercel.app/";
+const fakeApi = route => route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: "{}" });
+async function newCtx(browser, opts = {}) {
+  const ctx = await browser.newContext(opts);
+  await ctx.addInitScript(() => { try { for (const k of ["tehilim-me", "tehilim-preview-me"]) if (!localStorage.getItem(k)) localStorage.setItem(k, "aron"); } catch (e) {} });
+  return ctx;
+}
+
 // Tiny reporter: each test file prints one RESULT line that run-all.js collects.
+// Every test file has a hard time limit (TEST_LIMIT seconds, default 170; run-all.js kills it at 180 as a backstop):
+// a hang, e.g. a browser that never closes, fails fast with a clear message instead of running forever.
 function reporter(name) {
   let checks = 0; const fails = [];
+  const limit = Number(process.env.TEST_LIMIT) || 170;
+  setTimeout(() => {
+    for (const m of fails.slice(0, 20)) console.log("  FAIL", m);
+    console.log(`RESULT FAIL | ${name} | timed out after ${limit} s (${checks} checks done, ${fails.length} failures): something hung`);
+    process.exit(1);
+  }, limit * 1000).unref();
   return {
     check(ok, msg) { checks++; if (!ok && fails.length < 1e6) fails.push(msg); },
     done(extra = "") {
@@ -75,4 +94,4 @@ function reporter(name) {
 }
 
 module.exports = { H, ROOT, loadPage, notify, fixedFromDate, dateFromFixed, iso, hd, todayDubai, endOfYear,
-  birthFixed, hebcalBirthday, isShabbatOrYomTov, reporter, fulfillSite };
+  birthFixed, hebcalBirthday, isShabbatOrYomTov, reporter, fulfillSite, API_HOST, fakeApi, newCtx };

@@ -60,4 +60,4 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
   for (let f = start + 1; next.length < 3; f++) if (N.feedbackFor(f) && !N.buildMessage(f)) next.push(iso(f));
   fs.rmSync(dir, { recursive: true, force: true });
   R.done(`${months} months, ${moved} moved (at most ${maxMove} days), next: ${next.join(", ")}`);
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exit(1); });   // exit even if a browser is still open

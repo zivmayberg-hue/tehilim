@@ -7,7 +7,7 @@
 const path = require("path");
 const fs = require("fs");
 const { chromium } = require("playwright");
-const { reporter, fulfillSite } = require("./lib");
+const { reporter, fulfillSite, API_HOST, fakeApi, newCtx } = require("./lib");
 
 const R = reporter("Statistics (Umami) on the live address only");
 const HTML = fs.readFileSync(path.join(__dirname, "..", "index.html"));
@@ -18,20 +18,20 @@ const FAKE_UMAMI = `window.__umami = window.__umami || [];
 const WHEN = new Date("2026-10-27T08:00:00Z");      // 12:00 in Dubai
 
 async function newContext(browser, umami = "ok") {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, timezoneId: "Asia/Dubai", locale: "ru-RU" });
+  const ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, timezoneId: "Asia/Dubai", locale: "ru-RU" });
   ctx.umamiRequests = 0;
   await ctx.route("**/*", async route => {
     const u = route.request().url();
     if (u.startsWith("file:")) return route.continue();
     if (u.startsWith("https://cloud.umami.is/")) {
       ctx.umamiRequests++;
-      if (umami === "blocked") return route.abort();
+      if (umami === "blocked") return route.request().url().startsWith(API_HOST) ? fakeApi(route) : route.abort();
       if (umami === "slow") await new Promise(r => setTimeout(r, 4000));
       return route.fulfill({ status: 200, contentType: "application/javascript", body: FAKE_UMAMI });
     }
     if (u.startsWith("https://fonts.googleapis.com/")) return route.fulfill({ status: 200, contentType: "text/css", body: "" });
     if (u.startsWith("https://zivmayberg-hue.github.io/")) return fulfillSite(route, HTML);
-    return route.abort();
+    return route.request().url().startsWith(API_HOST) ? fakeApi(route) : route.abort();
   });
   return ctx;
 }

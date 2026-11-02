@@ -101,4 +101,4 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
 
   fs.rmSync(dir, { recursive: true, force: true });
   R.done(`${days} mornings x ${RUNS.length} runs, ${sends} sending days, late runs checked on ${lateChecked} days (${shabbatCapped} before Shabbat or Yom Tov)`);
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exit(1); });   // exit even if a browser is still open

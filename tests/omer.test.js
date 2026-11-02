@@ -14,7 +14,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { chromium } = require("playwright");
-const { H, loadPage, notify, fixedFromDate, dateFromFixed, iso, isShabbatOrYomTov, reporter, fulfillSite } = require("./lib");
+const { H, loadPage, notify, fixedFromDate, dateFromFixed, iso, isShabbatOrYomTov, reporter, fulfillSite, API_HOST, fakeApi, newCtx } = require("./lib");
 
 const P = loadPage(), N = notify(), R = reporter("Sefirat HaOmer: page, evening messages and runs (10 seasons)");
 const C = N.C, HEB = /[\u0591-\u05C7]/g;
@@ -191,11 +191,11 @@ R.check(C.omerRu(7) === "7-й день, это неделя" && C.omerRu(8) === 
   ];
   let views = 0;
   for (const lang of ["ru", "en", "he"]) for (const dev of ["iPhone", "iPad"]) for (const scheme of ["light", "dark"]) for (const big of [false, true]) {
-    const ctx = await browser.newContext({ ...DEV[dev], colorScheme: scheme, locale: "ru-RU" });
+    const ctx = await newCtx(browser, { ...DEV[dev], colorScheme: scheme, locale: "ru-RU" });
     await ctx.route("**/*", r => { const u = r.request().url();
       if (u.startsWith("https://zivmayberg-hue.github.io/")) return fulfillSite(r, HTML);
       if (u.startsWith("https://fonts.googleapis.com/")) return r.fulfill({ status: 200, contentType: "text/css", body: "" });
-      return r.abort(); });
+      return r.request().url().startsWith(API_HOST) ? fakeApi(r) : r.abort(); });
     if (big) await ctx.addInitScript(() => { try { localStorage.setItem("big", "1"); } catch (e) {} });
     const page = await ctx.newPage(), errors = [];
     page.on("pageerror", e => errors.push(e.message));
@@ -227,4 +227,4 @@ R.check(C.omerRu(7) === "7-й день, это неделя" && C.omerRu(8) === 
   fs.rmSync(dir, { recursive: true, force: true });
   R.done(`${seasons.length} seasons, 49 days checked against chabad.org and Hebcal, ${pageChecks} days x 3 cities on the page, ` +
     `${evenings} evening messages + ${inMorning} counts in morning messages (${fridays} Fridays), ${runDays} evenings x 5 runs (${early} too-early runs held back), ${lateChecks} midnight cutoff checks, ${views} Chromium views`);
-})().catch(e => { console.error(e); process.exitCode = 1; });
+})().catch(e => { console.error(e); process.exit(1); });   // exit even if a browser is still open

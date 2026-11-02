@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
-const { H, loadPage, fixedFromDate, dateFromFixed, iso, reporter } = require("./lib");
+const { H, loadPage, fixedFromDate, dateFromFixed, iso, reporter, API_HOST, fakeApi, newCtx } = require("./lib");
 
 const P = loadPage(), R = reporter("Daily Tehillim by day of the month and of the week");
 const URL = "file://" + path.join(__dirname, "..", "index.html");
@@ -77,11 +77,11 @@ const DEVICES = {
 const TEXT = { ru: ["По дню месяца", "По дню недели", "Прочитано 0 из 12"], en: ["Monthly cycle", "Weekly cycle", "Read 0 of 12"],
   he: ["לפי יום בחודש", "לפי יום בשבוע", "נקראו 0 מתוך 12"] };
 async function newContext(browser, device = "iPhone", scheme = "light") {
-  const ctx = await browser.newContext({ ...DEVICES[device], colorScheme: scheme, timezoneId: "Asia/Dubai", locale: "ru-RU" });
+  const ctx = await newCtx(browser, { ...DEVICES[device], colorScheme: scheme, timezoneId: "Asia/Dubai", locale: "ru-RU" });
   await ctx.route("**/*", r => { const u = r.request().url();
     if (u.startsWith("file:")) return r.continue();
     if (u.startsWith("https://fonts.googleapis.com/")) return r.fulfill({ status: 200, contentType: "text/css", body: "" });
-    return r.abort(); });
+    return r.request().url().startsWith(API_HOST) ? fakeApi(r) : r.abort(); });
   return ctx;
 }
 async function open(ctx, lang, when, errors) {
