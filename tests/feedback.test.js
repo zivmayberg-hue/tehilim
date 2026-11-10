@@ -37,7 +37,7 @@ const quiet = async fn => { const log = console.log; console.log = () => {}; try
     const month = `${y}-${String(m + 1).padStart(2, "0")}`;
     let sun = fixedFromDate(new Date(y, m, 1)); while (dateFromFixed(sun).getDay() !== 0) sun++;
     const f = sentBy.get(month);
-    if (month === "2026-11") { R.check(f !== undefined && iso(f) === "2026-11-03", `launch: sent ${f && iso(f)}`); months++; continue; }
+    if (month === "2026-11") { if (start <= fixedFromDate(new Date(2026, 10, 3))) R.check(f !== undefined && iso(f) === "2026-11-03", `launch: sent ${f && iso(f)}`); months++; continue; }   // the launch day is in the past from 4 Nov 2026 on (the launch run itself is checked below)
     if (sun < start) continue;
     if (f === undefined) { if (N.feedbackDay(y, m) <= end) R.check(false, `${month}: never sent`); continue; }
     months++;
