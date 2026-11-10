@@ -41,6 +41,7 @@ const C = loadCalendar();
 
 const dow = f => ((f % 7) + 7) % 7;                 // 0 = воскресенье ... 6 = суббота
 const WEEKDAY_ACC = ["в воскресенье", "в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу"];
+const WEEKDAY_NOM = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
 
 // Дни Йом Тов в диаспоре (дневное время), месяц/день
 const YOM_TOV = new Set(["7/1", "7/2", "7/10", "7/15", "7/16", "7/22", "7/23", "1/15", "1/16", "1/21", "1/22", "3/6", "3/7"]);
@@ -93,9 +94,10 @@ function holidaysOn(f) {
   if (rc && rc.kind === "rc") {
     const first = h.d === 30 || rc.day === 1;
     if (first) {
-      const two = h.d === 30;
-      out.push({ start: "evening", rc: true,
-        text: `Рош Ходеш ${C.ruMonthNom(h.d === 30 ? (rc.month === 1 ? y : y) : y, rc.month)}${two ? " (два дня)" : ""}. Добавляем Псалом 104 «Борхи нафши». 🌙` });
+      // два дня (30-е прошлого месяца и 1-е нового): называем оба дня недели, по дню f и следующему
+      const two = h.d === 30, days = two ? `, два дня: ${WEEKDAY_NOM[dow(f)]} и ${WEEKDAY_NOM[dow(f + 1)]}` : "";
+      out.push({ start: "evening", rc: true, rcDays: two ? 2 : 1,
+        text: `Рош Ходеш ${C.ruMonthNom(y, rc.month)}${days}. Добавляем Псалом 104 «Борхи нафши». 🌙` });
     }
   }
   return out;

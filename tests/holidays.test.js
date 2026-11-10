@@ -42,7 +42,7 @@ const actual = new Set();
 for (let f = start; f <= end; f++) {
   for (const e of N.holidaysOn(f)) {
     let key;
-    if (e.rc) { const m = e.text.match(/^Рош Ходеш (.+?)(?: \(два дня\))?\. /); key = "rc:" + (m ? m[1] : "?"); }
+    if (e.rc) { const m = e.text.match(/^Рош Ходеш (.+?)(?:, два дня: \S+ и \S+)?\. /); key = "rc:" + (m ? m[1] : "?"); }
     else { const hit = NOTIFY.find(([p]) => e.text.startsWith(p)); key = hit ? hit[1] : "?" + e.text; }
     actual.add(`${key}@${f}`);
     if (!e.rc) R.check(e.start === (DAWN.has(key) ? "dawn" : "evening"), `${key} ${iso(f)}: starts at ${e.start}`);
