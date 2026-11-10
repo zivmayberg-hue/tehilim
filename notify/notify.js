@@ -358,6 +358,12 @@ function buildMessage(today) {
   if (ev.length === 0 && nights.length === 0) return null;
   const lines = ["Доброе утро, семья! ☀️", ""], links = [];
   let block = false;                                   // после блока с таблицей времени нужна пустая строка
+  // второй день двухдневного Рош Ходеша: одна строка, только если в это утро и так есть сообщение
+  const th = C.hebrewFromFixed(today), rcToday = C.roshChodesh(th);
+  if (rcToday && rcToday.kind === "rc" && rcToday.day === 2) {
+    lines.push(`Сегодня второй день Рош Ходеш ${C.ruMonthNom(th.y, th.m)}, читаем Псалом 104.`);
+    block = true;                                      // дальше пустая строка
+  }
   const gap = () => { if (lines.length > 2) lines.push(""); };
   let omerDone = !nights.length;
   const omerBlock = () => { if (omerDone) return; omerDone = true; gap(); lines.push(...omerMorningLines(today, nights)); block = true; };

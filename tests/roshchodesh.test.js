@@ -1,6 +1,8 @@
 // Rosh Chodesh, one day or two (the 30th of the previous month + the 1st), every one to the end of 2036 against Hebcal:
 // - the WhatsApp announcement: exactly once, on a morning before it starts (moved before Shabbat or Yom Tov), naming the
 //   month; two-day ones say "два дня: <weekday> и <weekday>" with Hebcal's two days, one-day ones say nothing about days;
+// - on the second day of a two-day one, the line "Сегодня второй день Рош Ходеш <month>, читаем Псалом 104." exactly when
+//   that morning has a family message anyway (never a message just for it), first after the greeting; on no other day;
 // - the page banner each day in Russian, English and Hebrew: "день 1 из 2" / "день 2 из 2" exactly on two-day ones,
 //   nothing extra on one-day ones, no banner on other days (Rosh Hashana has its own holiday banner).
 "use strict";
@@ -28,10 +30,15 @@ R.check(inRange.some(s => s.days.length === 2) && inRange.some(s => s.days.lengt
 
 // Messages: every morning from today, the Rosh Chodesh lines
 const said = new Map();                               // span index -> [{morning, line}]
+const day2 = new Map();                               // morning -> the second-day line
 for (let t = start; t <= end; t++) {
   const msg = N.buildMessage(t);
   if (!msg) continue;
   for (const line of msg.text.split("\n").filter(l => l.includes("Рош Ходеш "))) {
+    if (line.startsWith("Сегодня второй день Рош Ходеш ")) {
+      R.check(!day2.has(t) && msg.text.split("\n")[2] === line, `${iso(t)}: second-day line twice or not first: "${line}"`);
+      day2.set(t, line); continue;
+    }
     const m = line.match(/начинается Рош Ходеш (.+?)(?:, два дня: (\S+) и (\S+))?\. Добавляем Псалом 104/);
     if (!m) { R.check(false, `${iso(t)}: unexpected line "${line}"`); continue; }
     // the span that starts on the evening this message talks about: the first Hebcal span starting after this morning
@@ -57,6 +64,21 @@ for (const s of inRange) {
   }
 }
 
+// The second-day line: on every second day that has a morning message anyway, and nowhere else
+let day2Lines = 0, day2Quiet = 0;
+for (const s of spans.filter(s => s.days.length === 2 && s.days[1] >= start && s.days[1] <= end)) {
+  const d = s.days[1], tag = `Rosh Chodesh ${s.m} day 2 ${iso(d)}`;
+  const others = N.eventsFor(d), hasOther = !!(others && (others.length || N.omerNightsInMorning(d).length));
+  if (hasOther) {
+    day2Lines++;
+    R.check(day2.get(d) === `Сегодня второй день Рош Ходеш ${s.m}, читаем Псалом 104.`, `${tag}: message without the line or wrong: ${JSON.stringify(day2.get(d))}`);
+  } else {
+    day2Quiet++;
+    R.check(!N.buildMessage(d), `${tag}: a message just for the second-day line`);
+  }
+}
+for (const t of day2.keys()) R.check(spans.some(s => s.days.length === 2 && s.days[1] === t), `${iso(t)}: second-day line on a day that is not the second day`);
+
 // Page banner: every day, in three languages
 const SUFFIX = { ru: [" (день 1 из 2)", " (день 2 из 2)"], en: [" (day 1 of 2)", " (day 2 of 2)"], he: [" (יום 1 מתוך 2)", " (יום 2 מתוך 2)"] };
 let bannerDays = 0;
@@ -73,4 +95,4 @@ for (let f = start; f <= end; f++) {
     R.check(part ? title.endsWith(SUFFIX[L][part - 1]) : !title.includes("2"), `${iso(f)} ${L}: "${title}"`);
   }
 }
-R.done(`${inRange.length} Rosh Chodesh to 2036: ${two} of two days, ${one} of one day, ${moved} announced on an earlier morning; ${bannerDays} banner days in 3 languages`);
+R.done(`${inRange.length} Rosh Chodesh to 2036: ${two} of two days, ${one} of one day, ${moved} announced on an earlier morning; second day: ${day2Lines} lines in a morning message, ${day2Quiet} quiet mornings; ${bannerDays} banner days in 3 languages`);
